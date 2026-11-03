@@ -13,6 +13,11 @@ const SUBSTEP = 1 / 240;
 
 export type Spring = { x: number; v: number };
 
+/** Reject sensor glitches and constrain normalized input to the visible range. */
+export function clampTilt(value: number): number {
+  return Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+}
+
 export function springDamping(m = CARD_MASS, k = CARD_STIFFNESS, zeta = CARD_DAMPING_RATIO): number {
   return 2 * zeta * Math.sqrt(k * m);
 }

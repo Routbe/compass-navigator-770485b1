@@ -76,17 +76,17 @@ export const getCardLiveness = createServerFn({ method: "POST" })
       const own = await generateWalletPayload(context.userId, { space: card.space, allowAccountId: true });
       owner = own?.serial === card.serial;
     }
-    const { cardFrozen } = await import("./card-freeze.server");
-    const freeze = await cardFrozen(card.serial);
-    const live = owner && !freeze.frozen;
+    const { cardStatus } = await import("./card-freeze.server");
+    const status = await cardStatus(card.serial);
+    const live = owner && status === "active";
     // Age tier is told to the owner only; visitors never learn a member is a minor.
     const { isMinorUser } = await import("@/lib/minor-safety.server");
-    const minor = owner && context.userId ? await isMinorUser(context.userId).catch(() => false) : false;
+    const minor = owner && context.userId ? await isMinorUser(context.userId).catch(() => true) : false;
     return {
       owner,
       tier: (minor ? "minor" : "sovereign") as "minor" | "sovereign",
-      frozen: freeze.frozen,
-      freezeAvailable: freeze.available,
+      frozen: status !== "active",
+      freezeAvailable: status !== "unavailable",
       window: w,
       expiresAt: (w + 1) * LIVE_WINDOW_S * 1000,
       serverNow: now,
@@ -106,8 +106,8 @@ export const getSecureCardToken = createServerFn({ method: "POST" })
     const { generateWalletPayload, walletOrigin } = await import("./wallet-payload.server");
     const own = await generateWalletPayload(context.userId, { space: data.space, allowAccountId: true });
     if (!own) return null;
-    const { cardStatus } = await import("./card-freeze.server");
-    if ((await cardStatus(own.serial)) === "frozen") return { frozen: true as const };
+    const { validateCardActive } = await import("./card-freeze.server");
+    if (!(await validateCardActive(own.serial))) return { frozen: true as const };
     const { livenessKey } = await import("./card-liveness.server");
     const { signSecureToken } = await import("./card-token");
     const now = Date.now();
@@ -140,8 +140,8 @@ export const verifyCardLiveCode = createServerFn({ method: "POST" })
     const { verifyLiveCode } = await import("./card-liveness");
     const card = await generateWalletPayload(data.handle, { space: data.space });
     if (!card) return { valid: false, limited: false };
-    const { cardFrozen } = await import("./card-freeze.server");
-    if ((await cardFrozen(card.serial)).frozen) return { valid: false, limited: false };
+    const { validateCardActive } = await import("./card-freeze.server");
+    if (!(await validateCardActive(card.serial))) return { valid: false, limited: false };
     return { valid: await verifyLiveCode(await livenessKey(), card.serial, data.code, Date.now()), limited: false };
   });
 

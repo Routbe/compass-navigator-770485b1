@@ -1,12 +1,11 @@
 /**
- * Server key for ROUT Card liveness codes. Derived with HKDF from the existing
- * PUBLIC_REF_SECRET under its own label, so it is unrelated to sealed refs.
+ * Server key for ROUT Card liveness codes, from a dedicated signing secret.
  */
 let cached: Promise<Uint8Array> | null = null;
 
 export function livenessKey(): Promise<Uint8Array> {
   if (cached) return cached;
-  const secret = process.env["CARD_LIVENESS_SECRET"] ?? process.env["PUBLIC_REF_SECRET"];
+  const secret = process.env["CARD_LIVENESS_SECRET"];
   if (!secret || secret.length < 32) throw new Error("card liveness key not configured");
   cached = (async () => {
     const enc = new TextEncoder();

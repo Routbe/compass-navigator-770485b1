@@ -43,6 +43,7 @@ uniform float uRough;     // < 0 = finish default, else PBR roughness
 uniform float uMetal;     // < 0 = finish default, else PBR metalness
 uniform float uClearcoat; // 0..1 lacquer lobe (ceramic)
 uniform float uAniso;     // 0..1 brushed highlight along the card's long axis
+uniform float uMotion;    // 0 disables temporal effects for reduced motion
 varying vec2 vUv;
 varying vec3 vWorldPos;
 varying vec3 vN;
@@ -95,7 +96,7 @@ void main() {
   float rose = aaLine(r * 46.0 + 0.55 * sin(a * 12.0) + 0.25 * sin(a * 5.0 + r * 30.0), 0.035);
   float rose2 = aaLine(r * 46.0 - 0.55 * sin(a * 12.0 + 1.3), 0.035);
   float waves = aaLine(p.y * 70.0 + 0.9 * sin(p.x * 24.0 + p.y * 6.0), 0.03);
-  float guilloche = max(max(rose, rose2) * smoothstep(0.62, 0.15, r), waves * 0.55);
+  float guilloche = max(max(rose, rose2) * (1.0 - smoothstep(0.15, 0.62, r)), waves * 0.55);
 
   // Finish weights without branches.
   float isGlass = step(0.5, uFinish) * step(uFinish, 1.5);
@@ -146,7 +147,8 @@ void main() {
   float tick = floor(uTime * 60.0);
   float n = hash12(gl_FragCoord.xy + uSeed.xy * 4096.0 + tick * vec2(1.618, 2.718));
   float strobe = step(0.5, fract((vUv.x + vUv.y) * 180.0 + uTime * (3.0 + uSeed.z * 4.0)));
-  col += (n - 0.5) * 0.022 + (strobe - 0.5) * 0.006;
+  // Visual texture, not protection against screenshots or recording.
+  col += ((n - 0.5) * 0.022 + (strobe - 0.5) * 0.006) * uMotion;
 
   gl_FragColor = vec4(max(col, 0.0), 1.0);
   #include <tonemapping_fragment>
@@ -173,6 +175,7 @@ export function createSecurityMaterial(map: THREE.Texture, mask: THREE.Texture, 
       uMetal: { value: -1 },
       uClearcoat: { value: 0 },
       uAniso: { value: 0 },
+      uMotion: { value: 1 },
     },
   });
 }

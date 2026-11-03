@@ -4,12 +4,12 @@
  * the moving light and the shader clock; per-frame state lives in refs.
  * Text is SDF (troika, generated in a worker) so it stays sharp at any zoom.
  */
-import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, Text } from "@react-three/drei";
 import * as THREE from "three";
 import { CARD_RATIO, FACE_H, FACE_W, type CardFaces } from "./card-faces";
-import { stepSpring, type Spring } from "./card-physics";
+import { clampTilt, stepSpring, type Spring } from "./card-physics";
 import { createSecurityMaterial } from "./card-shader";
 
 export type CardFinish = "metal" | "glass" | "holo" | "junior";
@@ -116,6 +116,14 @@ function Embossed({ children, y, size, color, weight }: { children: string; y: n
 }
 
 function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, text }: CardProps) {
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
   const ring = useMemo(
     () => new THREE.ShaderMaterial({ vertexShader: ringVertex, fragmentShader: ringFragment, transparent: true, depthWrite: false, toneMapped: false, uniforms: { uFrac: { value: 0 } } }),
     [],
@@ -156,10 +164,10 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
     textures.front.dispose();
     textures.back.dispose();
     textures.mask.dispose();
-    security.dispose();
-    body.dispose();
-    face.dispose();
-  }, [textures, security, body, face]);
+  }, [textures]);
+  useEffect(() => () => security.dispose(), [security]);
+  useEffect(() => () => body.dispose(), [body]);
+  useEffect(() => () => face.dispose(), [face]);
 
   useFrame((state, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05);
@@ -172,26 +180,28 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
       // Settle the idle spin to the nearest full turn so the chosen face shows.
       const target = Math.round(m.idle / (Math.PI * 2)) * Math.PI * 2;
       m.idle += (target - m.idle) * k(FLIP_DAMP);
-    } else {
+    } else if (!reducedMotion) {
       m.idle += dt * ((Math.PI * 2) / IDLE_PERIOD_S);
     }
     m.flip += ((flipped ? Math.PI : 0) - m.flip) * k(FLIP_DAMP);
-    m.yaw = stepSpring(m.yaw, t.x * TILT_YAW, dt);
-    m.pitch = stepSpring(m.pitch, -t.y * TILT_PITCH, dt);
+    m.yaw = stepSpring(m.yaw, clampTilt(t.x) * TILT_YAW, dt);
+    m.pitch = stepSpring(m.pitch, -clampTilt(t.y) * TILT_PITCH, dt);
     const g = group.current;
     if (g) {
-      g.rotation.y = m.idle + m.flip + m.yaw.x;
-      g.rotation.x = m.pitch.x;
-      g.position.y = Math.sin(state.clock.elapsedTime * 0.8) * 0.02 * (1 - zoom.current);
+      g.rotation.y = (reducedMotion ? 0 : m.idle) + m.flip + Math.max(-TILT_YAW, Math.min(TILT_YAW, m.yaw.x));
+      g.rotation.x = Math.max(-TILT_PITCH, Math.min(TILT_PITCH, m.pitch.x));
+      g.position.y = reducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.8) * 0.02 * (1 - zoom.current);
     }
     m.z += (CAMERA_FAR + (CAMERA_NEAR - CAMERA_FAR) * zoom.current - m.z) * k(ZOOM_DAMP);
     camera.position.z = m.z;
     const u = security.uniforms;
+    const motionUniform = u["uMotion"];
+    if (motionUniform) motionUniform.value = reducedMotion ? 0 : 1;
     // Real wall-clock time, so a replayed recording drifts out of phase.
     u["uTime"]!.value = (Date.now() % 3_600_000) / 1000;
     const s = live.current.seed;
     (u["uSeed"]!.value as THREE.Vector4).set(s[0], s[1], s[2], s[3]);
-    (u["uLightPos"]!.value as THREE.Vector3).set(t.x * 2.2 + Math.sin(state.clock.elapsedTime * 0.3) * 0.4, t.y * 2 + 0.8, 2.4);
+    (u["uLightPos"]!.value as THREE.Vector3).set(clampTilt(t.x) * 2.2 + (reducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.3) * 0.4), clampTilt(t.y) * 2 + 0.8, 2.4);
     if (secure) {
       const { iat, exp } = secure.current;
       ring.uniforms["uFrac"]!.value = exp > 0 ? Math.max(0, Math.min(1, (exp - Date.now()) / Math.max(1, exp - iat))) : 0;
