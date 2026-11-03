@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_DAMPING_RATIO, filterGyro, stepSpring, type Spring } from "./card-physics";
+import { CARD_DAMPING_RATIO, clampTilt, filterGyro, stepSpring, type Spring } from "./card-physics";
 
 function run(dt: number, seconds: number) {
   let s: Spring = { x: 0, v: 0 };
@@ -12,6 +12,13 @@ function run(dt: number, seconds: number) {
 }
 
 describe("card physics", () => {
+  it("clamps sensor and pointer inputs and rejects non-finite readings", () => {
+    expect(clampTilt(20)).toBe(1);
+    expect(clampTilt(-20)).toBe(-1);
+    expect(clampTilt(0.3)).toBe(0.3);
+    expect(clampTilt(NaN)).toBe(0);
+    expect(clampTilt(Infinity)).toBe(0);
+  });
   it("is under-damped: one soft overshoot, then it settles on target", () => {
     expect(CARD_DAMPING_RATIO).toBeLessThan(1);
     const { s, peak } = run(1 / 60, 3);

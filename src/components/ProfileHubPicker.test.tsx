@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProfileQrDesignContext, toProfileQrStyle } from "@/lib/qr-design-bridge";
 
 const { save, load } = vi.hoisted(() => ({ save: vi.fn(), load: vi.fn() }));
-vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
+vi.mock("@tanstack/react-start", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@tanstack/react-start")>(),
+  useServerFn: (fn: unknown) => fn,
+}));
 vi.mock("@/lib/qr-settings.functions", () => ({ saveQrSettingsFn: save }));
 vi.mock("@/lib/studio-profile.functions", () => ({ getStudioProfile: load }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { id: "owner" } }) }));

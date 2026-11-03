@@ -7,7 +7,7 @@ it("independently verifies the edge RS256 Google Wallet Save claim", async () =>
   const keys = await generateKeyPair("RS256", { extractable: true });
   const privateKey = await exportPKCS8(keys.privateKey);
   const cfg = { issuerId: "12345", classId: "12345.rout_card", serviceAccountEmail: "wallet@example.iam.gserviceaccount.com", privateKey: privateKey.replace(/\n/g, "\\n") };
-  const card = walletCardPayload({ handle: "member", displayName: "Member", profileUrl: "https://rout.be/u/member" });
+  const card = walletCardPayload({ handle: "member", space: "root", displayName: "Member", tagline: null, themeBg: null, avatarSrc: null }, "https://rout.be", "RT-ABCD-1234-X");
   const result = await googleCardSave(card, "https://rout.be", cfg);
   const verified = await jwtVerify(result.jwt, keys.publicKey, { algorithms: ["RS256"], issuer: cfg.serviceAccountEmail, audience: "google" });
   expect(verified.protectedHeader.alg).toBe("RS256");
