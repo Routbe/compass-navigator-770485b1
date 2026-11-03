@@ -202,6 +202,8 @@ void main() {
 `;
 
 export function createSecurityMaterial(map: THREE.Texture, mask: THREE.Texture, texel: [number, number], back = false): THREE.ShaderMaterial {
+  const tokens = getComputedStyle(document.documentElement);
+  const ink = (name: string) => new THREE.Color(tokens.getPropertyValue(name).trim());
   return new THREE.ShaderMaterial({
     vertexShader: vertex,
     fragmentShader: fragment,
@@ -222,10 +224,10 @@ export function createSecurityMaterial(map: THREE.Texture, mask: THREE.Texture, 
       uAniso: { value: 0 },
       uMotion: { value: 1 },
       uBack: { value: back ? 1 : 0 },
-      uInkGreen: { value: new THREE.Color("#286955") },
-      uInkSteel: { value: new THREE.Color("#668da4") },
-      uInkPlatinum: { value: new THREE.Color("#c6d4d9") },
-      uChipMetal: { value: new THREE.Color("#c4ab70") },
+      uInkGreen: { value: ink("--card-security-ink-green") },
+      uInkSteel: { value: ink("--card-security-ink-steel") },
+      uInkPlatinum: { value: ink("--card-security-ink-platinum") },
+      uChipMetal: { value: ink("--card-security-chip-metal") },
     },
   });
 }
