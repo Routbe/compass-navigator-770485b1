@@ -69,11 +69,15 @@ const PROTECTED_COLUMNS: Record<string, string[]> = {
 };
 
 /**
- * Allowlist of browser-writable columns for every non-profile table. Tables
- * absent here (and not `profiles`) accept no browser-written columns at all;
+ * Allowlist of browser-writable columns for ordinary members. Tables
+ * absent here accept no browser-written columns at all;
  * ownership/workspace columns are re-applied server-side afterwards.
  */
 const WRITABLE_COLUMNS: Record<string, string[]> = {
+  // Keep this limited to the existing Profile/Account Settings and email
+  // visibility controls. Identity, age, billing and lifecycle fields must use
+  // their dedicated server workflows; new schema columns are denied by default.
+  profiles: ["username", "display_name", "tagline", "bio", "avatar_url", "show_email_publicly"],
   saved_qrs: ["name", "qr_type", "qr_value", "config"],
   tracked_qrs: ["slug", "target_type", "target_url", "label", "custom_domain", "kind", "short_link_enabled"],
   notifications: ["read_at"],
@@ -82,10 +86,10 @@ const WRITABLE_COLUMNS: Record<string, string[]> = {
 function stripProtected(descriptor: QueryDescriptor): QueryDescriptor {
   if (descriptor.values == null) return descriptor;
   const blocked = PROTECTED_COLUMNS[descriptor.table] ?? [];
-  const allowed = descriptor.table === "profiles" ? null : (WRITABLE_COLUMNS[descriptor.table] ?? []);
+  const allowed = WRITABLE_COLUMNS[descriptor.table] ?? [];
   const clean = (row: Record<string, unknown>) =>
     Object.fromEntries(
-      Object.entries(row ?? {}).filter(([k]) => !blocked.includes(k) && (allowed === null || allowed.includes(k))),
+      Object.entries(row ?? {}).filter(([k]) => !blocked.includes(k) && allowed.includes(k)),
     );
   const values = Array.isArray(descriptor.values)
     ? descriptor.values.map((r) => clean(r as Record<string, unknown>))
