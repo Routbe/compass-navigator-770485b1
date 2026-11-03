@@ -7,8 +7,10 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
+- [x] Add latest Google configuration aliases, issuer-scoped class validation and owner-only claim; both legacy Google profile paths also enforce ownership. 22 focused tests pass.
+- [ ] Complete official Google-library signing and live claim verification — blocked by unsupported Node-only library on current hosting, signing-service decision, issuer credentials and configured ROUT session.
 - [x] Complete manual audit of security, integration and uploaded WebGL requirements; record evidence and release blockers in audit.md.
-- [ ] Incorporate automated deep security scan findings — blocked by running scanner; notification will report completion.
+- [x] Incorporate completed deep security scan: protected profile fields lack a writable-field allowlist; retain finding for remediation.
 - [x] Implement uploaded four-language pairing, NFC recovery states and localized Google Wallet payloads; validate strict 3×30 MRZ before rendering.
 - [x] Review Google-supported NFC, sharing and callback controls; keep public profile passes free of private NFC secrets, first-saver ownership restrictions and false certification claims.
 - [ ] Activate Google REST updates and signed save/delete callbacks — blocked by Google issuer credentials, reviewed persisted-object provisioning and a vetted ECv2SigningOnly callback verifier with durable replay storage.

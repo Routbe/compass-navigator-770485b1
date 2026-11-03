@@ -24,7 +24,7 @@ export async function googleSaveUrl(subject: WalletSubject, origin: string, cfg:
 
 /** ROUT Card (profile) save link + JWT. */
 export async function googleCardSave(card: WalletCardPayload, origin: string, cfg: GoogleWalletConfig): Promise<{ jwt: string; saveUrl: string }> {
-  const claims = googleCardSaveClaims(card, { issuerId: cfg.issuerId, serviceAccountEmail: cfg.serviceAccountEmail, origins: [origin] });
+  const claims = googleCardSaveClaims(card, { issuerId: cfg.issuerId, serviceAccountEmail: cfg.serviceAccountEmail, origins: [origin], classId: cfg.classId });
   const jwt = await signGoogleSaveJwt(claims, cfg);
   return { jwt, saveUrl: googleSaveLink(jwt) };
 }

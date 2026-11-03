@@ -18,3 +18,4 @@
 - Pair client cards only through reviewed factory inventory and a separate activation proof; WebNFC reads a hardware ID, never keys, because public NDEF data cannot prove ownership.
 - Keep standard TD1 field positions and 7/3/1 integrity checks while labeling hash-filled birth fields as a privacy extension, because layout/checksums alone do not establish ICAO certification.
 - Wallet and physical-card translations use the exhaustive browser-safe wallet dictionary and pure pairing transitions; NFC readers are aborted on exit and server success alone triggers activation feedback, because public tag detection is not ownership verification.
+- Google profile claims enforce ownership at the server function and both legacy issuance endpoints, derive identities from the active session and accept class configuration only under the configured issuer, because UI-only checks leave alternate claim paths exposed.

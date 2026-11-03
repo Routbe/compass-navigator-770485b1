@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { downloadVCard } from "@/lib/vcard";
-import { getCardLiveness, getSecureCardToken, getWalletCard, getWalletStatus, saveMyCardDesign, setMyCardFrozen, verifyCardLiveCode } from "@/lib/wallet/wallet.functions";
+import { createWalletPass, getCardLiveness, getSecureCardToken, getWalletCard, getWalletStatus, saveMyCardDesign, setMyCardFrozen, verifyCardLiveCode } from "@/lib/wallet/wallet.functions";
 import { pickCardView } from "@/lib/wallet/card-liveness";
 import { contrastRatio } from "@/lib/wallet/card-style";
 import { CARD_MATERIALS, defaultMaterial, materialsFor, nearestSafeAccent, type AgeTier, type CardMaterial } from "@/lib/wallet/card-cmf";
@@ -62,6 +62,7 @@ export function RoutCardDialog({ open, onOpenChange, handle, space }: { open: bo
   const { t } = useTranslation();
   const loadCard = useServerFn(getWalletCard);
   const loadStatus = useServerFn(getWalletStatus);
+  const claimGoogle = useServerFn(createWalletPass);
   const [card, setCard] = useState<Card | null | undefined>(undefined);
   const [status, setStatus] = useState<WalletStatus | null>(null);
   const [faces, setFaces] = useState<CardFaces | null>(null);
@@ -310,9 +311,8 @@ export function RoutCardDialog({ open, onOpenChange, handle, space }: { open: bo
     // Open synchronously so the save page is not blocked as a popup.
     const tab = window.open("", "_blank");
     try {
-      const res = await fetch(`/api/wallet/google?username=${encodeURIComponent(handle)}${space ? `&space=${space}` : ""}`);
-      const body = (await res.json()) as { saveUrl?: string; error?: string };
-      if (!res.ok || !body.saveUrl) throw new Error(body.error ?? String(res.status));
+      const body = await claimGoogle({ data: { handle, space } });
+      if (!body.ok) throw new Error(body.error);
       if (tab) tab.location.href = body.saveUrl;
       else window.location.href = body.saveUrl;
     } catch {
