@@ -8,7 +8,8 @@ import { sql } from "@/lib/neon";
 
 export function missingSchema(err: unknown): boolean {
   const s = String((err as { message?: string })?.message ?? err);
-  return /42P01|42883|card_freezes|card_designs|card_token_uses|physical_keys|hardware_challenges|rout_card_|rout_hw_/.test(s);
+  const code = (err as { code?: string })?.code;
+  return code === "42P01" || code === "42883" || /42P01|42883|card_freezes|card_designs|card_token_uses|physical_keys|hardware_challenges|rout_card_|rout_hw_|rout_pair_factory_card/.test(s);
 }
 
 function notReady(): Error {
@@ -131,6 +132,17 @@ export async function addMyKey(userId: string, k: { serial: string; label: strin
   } catch (err) {
     if (missingSchema(err)) throw notReady();
     if (/23505/.test(String((err as Error)?.message))) throw Object.assign(new Error("This chip is already linked"), { statusCode: 409 });
+    throw err;
+  }
+}
+
+/** Atomic factory inventory claim; public NDEF ID alone never authorizes it. */
+export async function pairFactoryKey(hardwareId: string, activationHash: string, serial: string): Promise<string | null> {
+  try {
+    const rows = await sql.query("select public.rout_pair_factory_card($1::uuid, $2, $3) as id", [hardwareId, activationHash, serial]);
+    return typeof rows[0]?.id === "string" ? rows[0].id : null;
+  } catch (err) {
+    if (missingSchema(err)) throw notReady();
     throw err;
   }
 }

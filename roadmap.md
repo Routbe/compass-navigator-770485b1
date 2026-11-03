@@ -8,11 +8,10 @@
 
 # ROUT/PASS card directives
 - [x] Read uploaded requirements and verify the existing Neon connection.
-- [ ] Review existing card, Studio, account and Neon structures before integration.
-- [ ] Implement privacy-safe card payloads and layout validation with rule tests.
-- [ ] Implement age-restricted PBR customization and persisted production parameters.
-- [ ] Implement unpredictable card identifiers and a clearly private MRZ-inspired format.
-- [ ] Apply revised three-by-thirty MRZ layout and factory/client provisioning split; do not claim scanner certification for hash-filled date fields.
-- [ ] Implement single-use secure QR tokens, rotation and freeze checks.
-- [ ] Implement authenticated hardware challenge-response and supported activation flows.
-- [ ] Verify authenticated card flows and report hardware/deployment limitations.
+- [x] Review existing card, Studio, account and Neon structures before integration.
+- [x] Confirm existing privacy validation, CMF material rules and cryptographic primitives; run 35 focused tests.
+- [x] Apply revised three-by-thirty MRZ generator and shared back-face rendering; retain actual TD1 field positions without claiming certification.
+- [x] Replace client key registration with factory-ID pairing and a separate activation proof; prepare source-only migration 0200.
+- [ ] Apply reviewed card storage migrations — blocked by owner review of 0198/0199/0200; My Neon has no physical_keys, hardware_challenges or card_designs tables.
+- [ ] Verify physical pairing end to end — blocked by factory inventory, separate activation proof, compatible card/device and a configured ROUT sign-in session.
+- [ ] Verify secure QR replay/freeze storage and terminal challenge-response end to end — blocked by reviewed card storage and terminal integration; source primitives are not a deployed hardware system.

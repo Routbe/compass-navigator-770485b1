@@ -177,7 +177,7 @@ export const listMyPhysicalKeys = createServerFn({ method: "GET" })
     return listMyKeys();
   });
 
-/** Owner only: link a chip read through WebNFC (or typed in on iOS). */
+/** Legacy registration is disabled: client tags must not supply factory keys. */
 export const addMyPhysicalKey = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) =>
@@ -189,26 +189,27 @@ export const addMyPhysicalKey = createServerFn({ method: "POST" })
       keyAlg: z.enum(["Ed25519", "P-256"]).optional(),
     }).parse(d),
   )
+  .handler(async () => ({ ok: false as const, error: "factory-only" as const }));
+
+/** Owner only: pair a pre-provisioned card using a separate activation proof. */
+export const pairMyPhysicalKey = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({
+    hardwareId: z.string().uuid(),
+    activationCode: z.string().trim().min(20).max(128).regex(/^[A-Za-z0-9_-]+$/),
+    space: z.enum(["root", "alias"]).optional(),
+  }).parse(d))
   .handler(async ({ data, context }) => {
-    const { normalizeNfcUid, validPublicKey } = await import("./hardware-crypto");
-    const nfcUid = data.nfcUid ? normalizeNfcUid(data.nfcUid) : null;
-    if (data.nfcUid && !nfcUid) return { ok: false as const, error: "uid" as const };
-    if (data.publicKey && (!data.keyAlg || !validPublicKey(data.keyAlg, data.publicKey))) return { ok: false as const, error: "key" as const };
-    if (data.label) {
-      const { checkCardText } = await import("./card-privacy");
-      if (checkCardText(data.label)) return { ok: false as const, error: "privacy" as const };
-    }
     const { generateWalletPayload } = await import("./wallet-payload.server");
     const own = await generateWalletPayload(context.userId, { space: data.space, allowAccountId: true });
-    if (!own) throw Object.assign(new Error("No card"), { statusCode: 404 });
-    const { addMyKey } = await import("./card-freeze.server");
+    if (!own) return { ok: false as const, error: "card" as const };
+    const { pairFactoryKey } = await import("./card-freeze.server");
+    const { sha256Hex } = await import("./hardware-crypto");
     try {
-      const id = await addMyKey(context.userId, { serial: own.serial, label: data.label || null, nfcUid, publicKey: data.publicKey ?? null, keyAlg: data.publicKey ? data.keyAlg! : null });
-      return { ok: true as const, hardwareId: id };
+      const id = await pairFactoryKey(data.hardwareId, await sha256Hex(data.activationCode), own.serial);
+      return id ? { ok: true as const, hardwareId: id } : { ok: false as const, error: "activation" as const };
     } catch (err) {
-      const code = (err as { statusCode?: number }).statusCode;
-      if (code === 409) return { ok: false as const, error: "duplicate" as const };
-      if (code === 503) return { ok: false as const, error: "unavailable" as const };
+      if ((err as { statusCode?: number }).statusCode === 503) return { ok: false as const, error: "unavailable" as const };
       throw err;
     }
   });

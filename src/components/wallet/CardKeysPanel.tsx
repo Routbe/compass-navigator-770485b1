@@ -5,27 +5,28 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { addMyPhysicalKey, listMyPhysicalKeys, setMyPhysicalKeyStatus } from "@/lib/wallet/wallet.functions";
+import { pairMyPhysicalKey, listMyPhysicalKeys, setMyPhysicalKeyStatus } from "@/lib/wallet/wallet.functions";
+import { readHardwareId } from "@/lib/wallet/card-pairing";
 
 type Keys = Awaited<ReturnType<typeof listMyPhysicalKeys>>;
-
-/** NDEF record the card manufacturer writes with the secure element's public key. */
-const KEY_RECORD = /^rout-pk:(Ed25519|P-256):([A-Za-z0-9_-]{40,200})$/;
 
 type NdefReading = { serialNumber: string; message: { records: { recordType: string; data?: DataView; encoding?: string }[] } };
 type NdefReaderLike = { scan: (o?: { signal?: AbortSignal }) => Promise<void>; onreading: ((e: NdefReading) => void) | null; onreadingerror: (() => void) | null };
 
 /**
  * Physical ROUT keys: link a chip by tapping it (WebNFC on Android Chrome) or
- * by typing its UID (iOS has no WebNFC), then activate, freeze or revoke it.
+ * by entering its factory hardware ID. The separate activation code proves
+ * possession; the public NDEF tag never contains key material.
  */
 export function CardKeysPanel({ space }: { space?: "root" | "alias" }) {
   const list = useServerFn(listMyPhysicalKeys);
-  const add = useServerFn(addMyPhysicalKey);
+  const pair = useServerFn(pairMyPhysicalKey);
   const setStatus = useServerFn(setMyPhysicalKeyStatus);
   const [keys, setKeys] = useState<Keys | null>(null);
   const [scanning, setScanning] = useState(false);
   const [manual, setManual] = useState("");
+  const [activation, setActivation] = useState("");
+  const [pairing, setPairing] = useState(false);
   const [nfc, setNfc] = useState(false);
 
   const refresh = useCallback(() => {
@@ -37,16 +38,16 @@ export function CardKeysPanel({ space }: { space?: "root" | "alias" }) {
     refresh();
   }, [refresh]);
 
-  const link = async (payload: { nfcUid: string; publicKey?: string; keyAlg?: "Ed25519" | "P-256" }) => {
-    const r = await add({ data: { space, ...payload } });
-    if (r.ok) {
-      toast.success(payload.publicKey ? "Kaart gekoppeld. Activeer hem om te gebruiken." : "Chip gekoppeld (zonder beveiligde sleutel: alleen als ID-tag).");
-      refresh();
-    } else {
-      toast.error(
-        r.error === "duplicate" ? "Deze chip is al gekoppeld." : r.error === "unavailable" ? "Fysieke kaarten zijn nog niet ingesteld in de database." : r.error === "uid" ? "Ongeldige chip-ID." : "De chip gaf een ongeldige sleutel.",
-      );
-    }
+  const link = async () => {
+    setPairing(true);
+    try {
+      const r = await pair({ data: { space, hardwareId: manual.trim(), activationCode: activation.trim() } });
+      if (r.ok) {
+        toast.success("Fabriekskaart gekoppeld en geactiveerd.");
+        setActivation(""); setManual(""); refresh();
+      } else toast.error(r.error === "unavailable" ? "Fabriekskaarten zijn nog niet ingesteld." : "Kaart of activatiecode ongeldig, al gekoppeld of ingetrokken.");
+    } catch { toast.error("Kaart koppelen lukt nu niet."); }
+    finally { setPairing(false); }
   };
 
   const scan = async () => {
@@ -55,30 +56,26 @@ export function CardKeysPanel({ space }: { space?: "root" | "alias" }) {
     const ctrl = new AbortController();
     setScanning(true);
     const stop = setTimeout(() => ctrl.abort(), 30_000);
+    ctrl.signal.addEventListener("abort", () => { clearTimeout(stop); setScanning(false); }, { once: true });
     try {
       const reader = new Reader();
       reader.onreading = (e) => {
         ctrl.abort();
-        let publicKey: string | undefined;
-        let keyAlg: "Ed25519" | "P-256" | undefined;
+        let hardwareId: string | null = null;
         for (const rec of e.message.records) {
           if (rec.recordType !== "text" || !rec.data) continue;
-          const m = KEY_RECORD.exec(new TextDecoder(rec.encoding || "utf-8").decode(rec.data));
-          if (m) {
-            keyAlg = m[1] as "Ed25519" | "P-256";
-            publicKey = m[2];
-          }
+          hardwareId = readHardwareId(new TextDecoder(rec.encoding || "utf-8").decode(rec.data));
+          if (hardwareId) break;
         }
-        void link({ nfcUid: e.serialNumber, publicKey, keyAlg }).finally(() => setScanning(false));
+        if (hardwareId) setManual(hardwareId);
+        else toast.error("Geen geldige ROUT hardware-ID op deze kaart.");
       };
       reader.onreadingerror = () => toast.error("Kon de chip niet lezen. Houd de kaart stil tegen de achterkant van je telefoon.");
       await reader.scan({ signal: ctrl.signal });
     } catch {
       toast.error("NFC-toegang geweigerd of niet beschikbaar.");
       setScanning(false);
-    } finally {
-      clearTimeout(stop);
-      ctrl.signal.addEventListener("abort", () => setScanning(false));
+      ctrl.abort();
     }
   };
 
@@ -100,19 +97,21 @@ export function CardKeysPanel({ space }: { space?: "root" | "alias" }) {
         )}
       </div>
       {keys?.available === false && <p className="text-xs text-muted-foreground">Fysieke kaarten zijn nog niet ingesteld in de database.</p>}
-      {keys?.available !== false && !nfc && (
+      {keys?.available !== false && (
         <form
           className="grid gap-1.5"
           onSubmit={(e) => {
             e.preventDefault();
-            void link({ nfcUid: manual }).then(() => setManual(""));
+            void link();
           }}
         >
-          <label htmlFor="rout-chip-uid" className="text-xs text-muted-foreground">Deze browser kan geen NFC lezen (bv. iPhone). Typ de chip-ID van het activatiebriefje:</label>
+          <label htmlFor="rout-chip-uid" className="text-xs text-muted-foreground">Hardware-ID</label>
           <div className="flex gap-2">
-            <Input id="rout-chip-uid" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="04:A2:3B:1C:9D:80:00" className="h-9 font-mono text-xs" autoComplete="off" spellCheck={false} />
-            <Button type="submit" size="sm" variant="outline" className="h-9" disabled={manual.replace(/[^0-9a-f]/gi, "").length < 8}>Koppel</Button>
+            <Input id="rout-chip-uid" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" className="h-9 min-w-0 font-mono text-xs" autoComplete="off" spellCheck={false} />
           </div>
+          <label htmlFor="rout-activation" className="text-xs text-muted-foreground">Activatiecode uit je kaartverpakking</label>
+          <Input id="rout-activation" type="password" value={activation} onChange={(e) => setActivation(e.target.value)} autoComplete="off" maxLength={128} />
+          <Button type="submit" size="sm" variant="outline" disabled={pairing || manual.trim().length !== 36 || activation.trim().length < 20}>{pairing ? "Koppelen…" : "Koppel en activeer"}</Button>
         </form>
       )}
       {keys === null ? (
