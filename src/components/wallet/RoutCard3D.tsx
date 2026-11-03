@@ -154,11 +154,12 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
   const security = useMemo(() => createSecurityMaterial(textures.front, textures.mask, [1 / FACE_W, 1 / FACE_H]), [textures]);
   useEffect(() => {
     const u = security.uniforms;
-    u["uFinish"]!.value = FINISH_INDEX[finish];
-    u["uRough"]!.value = pbr ? pbr.roughness : -1;
-    u["uMetal"]!.value = pbr ? pbr.metalness : -1;
-    u["uClearcoat"]!.value = pbr ? pbr.clearcoat : 0;
-    u["uAniso"]!.value = pbr ? pbr.anisotropy : 0;
+    const set = (name: string, value: number) => { const uniform = u[name]; if (uniform) uniform.value = value; };
+    set("uFinish", FINISH_INDEX[finish]);
+    set("uRough", pbr ? pbr.roughness : -1);
+    set("uMetal", pbr ? pbr.metalness : -1);
+    set("uClearcoat", pbr ? pbr.clearcoat : 0);
+    set("uAniso", pbr ? pbr.anisotropy : 0);
   }, [security, finish, pbr]);
   useEffect(() => () => {
     textures.front.dispose();
@@ -198,13 +199,17 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
     const motionUniform = u["uMotion"];
     if (motionUniform) motionUniform.value = reducedMotion ? 0 : 1;
     // Real wall-clock time, so a replayed recording drifts out of phase.
-    u["uTime"]!.value = (Date.now() % 3_600_000) / 1000;
+    const time = u["uTime"];
+    if (time) time.value = (Date.now() % 3_600_000) / 1000;
     const s = live.current.seed;
-    (u["uSeed"]!.value as THREE.Vector4).set(s[0], s[1], s[2], s[3]);
-    (u["uLightPos"]!.value as THREE.Vector3).set(clampTilt(t.x) * 2.2 + (reducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.3) * 0.4), clampTilt(t.y) * 2 + 0.8, 2.4);
+    const seed = u["uSeed"];
+    if (seed?.value instanceof THREE.Vector4) seed.value.set(s[0], s[1], s[2], s[3]);
+    const light = u["uLightPos"];
+    if (light?.value instanceof THREE.Vector3) light.value.set(clampTilt(t.x) * 2.2 + (reducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.3) * 0.4), clampTilt(t.y) * 2 + 0.8, 2.4);
     if (secure) {
       const { iat, exp } = secure.current;
-      ring.uniforms["uFrac"]!.value = exp > 0 ? Math.max(0, Math.min(1, (exp - Date.now()) / Math.max(1, exp - iat))) : 0;
+      const fraction = ring.uniforms["uFrac"];
+      if (fraction) fraction.value = exp > 0 ? Math.max(0, Math.min(1, (exp - Date.now()) / Math.max(1, exp - iat))) : 0;
     }
     if (timer.current) {
       const left = Math.max(0, Math.min(1, (live.current.expiresAt - Date.now()) / live.current.windowMs));

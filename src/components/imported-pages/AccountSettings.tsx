@@ -227,6 +227,9 @@ export default function AccountSettings() {
       if (e.status === 401) return toast.error(trI18n.t("ui.336089932f"));
       return toast.error(`Could not start 2FA setup${e.message ? `: ${e.message}` : "."}`);
     }
+    if (!res.data || res.data.method !== "totp") {
+      return toast.error("Could not start authenticator setup.");
+    }
     setMfaUri(res.data.totpURI);
     setMfaBackup(res.data.backupCodes ?? []);
   };
