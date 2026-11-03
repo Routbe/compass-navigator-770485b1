@@ -1,4 +1,5 @@
 import { cardNumberFromDigest } from "./card-number";
+import { createLocalizedString, walletText } from "./wallet-i18n";
 /**
  * Wallet pass content for profiles and events (pure, browser-safe).
  * Apple (.pkpass pass.json) and Google (Generic pass object) are built from the
@@ -115,18 +116,18 @@ export function googleSaveClaims(s: WalletSubject, cfg: { issuerId: string; serv
     classId,
     state: "ACTIVE",
     hexBackgroundColor: "#111111",
-    cardTitle: { defaultValue: { language: "nl", value: "ROUT" } },
-    header: { defaultValue: { language: "nl", value: clip(s.title, 60) } },
-    subheader: { defaultValue: { language: "nl", value: s.kind === "event" ? (s.accessClaim === true ? "Evenement" : "Informatief") : "Profiel" } },
+    cardTitle: createLocalizedString({ nl: "ROUT", en: "ROUT", fr: "ROUT", de: "ROUT" }),
+    header: createLocalizedString({ nl: clip(s.title, 60), en: clip(s.title, 60), fr: clip(s.title, 60), de: clip(s.title, 60) }),
+    subheader: walletText(s.kind === "event" ? (s.accessClaim === true ? "event" : "informational") : "profile"),
     textModulesData: [
-      { id: "subtitle", header: s.kind === "event" ? "Wanneer" : "Handle", body: clip(s.subtitle, 120) },
-      ...(s.venue ? [{ id: "venue", header: "Locatie", body: clip(s.venue, 120) }] : []),
+      { id: "subtitle", localizedHeader: s.kind === "event" ? walletText("when") : walletText("profile"), body: clip(s.subtitle, 120) },
+      ...(s.venue ? [{ id: "venue", localizedHeader: walletText("venue"), body: clip(s.venue, 120) }] : []),
     ],
     // Zie applePassJson: een barcode is een toegangsclaim en vereist bewijs.
     ...(s.kind !== "event" || s.accessClaim === true
       ? { barcode: { type: "QR_CODE", value: s.url, alternateText: clip(s.url.replace(/^https?:\/\//, ""), 60) } }
       : {}),
-    linksModuleData: { uris: [{ uri: s.url, description: "Open in ROUT", id: "open" }] },
+    linksModuleData: { uris: [{ uri: s.url, localizedDescription: walletText("open"), id: "open" }] },
   };
   return {
     iss: cfg.serviceAccountEmail,
@@ -213,7 +214,7 @@ export function walletCardPayload(
 
 /** Google Generic object for a ROUT Card. */
 export function googleCardObject(card: WalletCardPayload, issuerId: string) {
-  const i18n = (value: string) => ({ defaultValue: { language: "nl", value } });
+  const i18n = (value: string) => createLocalizedString({ nl: value, en: value, fr: value, de: value });
   return {
     id: `${issuerId}.${card.serial.replace(/[^a-zA-Z0-9._-]/g, "_")}`,
     classId: `${issuerId}.rout_card`,
@@ -223,14 +224,18 @@ export function googleCardObject(card: WalletCardPayload, issuerId: string) {
     header: i18n(`@${card.handle}`),
     subheader: i18n(card.subheader),
     textModulesData: [
-      { id: "name", header: "Naam", body: card.displayName },
-      { id: "card", header: "Kaartnummer", body: card.sovereignId },
+      { id: "name", localizedHeader: walletText("name"), body: card.displayName },
+      { id: "card", localizedHeader: walletText("cardNumber"), body: card.sovereignId },
+      { id: "authentication", localizedHeader: walletText("authentication"), localizedBody: walletText("authenticationBody") },
+      { id: "sovereignty", localizedHeader: walletText("sovereignty"), localizedBody: walletText("sovereigntyBody") },
+      { id: "infrastructure", localizedHeader: walletText("infrastructure"), localizedBody: walletText("infrastructureBody") },
+      { id: "emergency", localizedHeader: walletText("emergency"), localizedBody: walletText("emergencyBody") },
     ],
     barcode: { type: "QR_CODE", value: card.qrValue, alternateText: clip(card.url.replace(/^https?:\/\//, ""), 60) },
     ...(card.heroImageUrl
-      ? { heroImage: { sourceUri: { uri: card.heroImageUrl }, contentDescription: i18n(`Profielfoto van ${card.displayName}`) } }
+      ? { heroImage: { sourceUri: { uri: card.heroImageUrl }, contentDescription: walletText("avatar") } }
       : {}),
-    linksModuleData: { uris: [{ uri: card.url, description: "Open profiel", id: "open" }] },
+    linksModuleData: { uris: [{ uri: card.url, localizedDescription: walletText("audit"), id: "open" }] },
   };
 }
 
