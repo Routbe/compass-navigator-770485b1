@@ -7,6 +7,7 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
+- [ ] Add forensic guilloche on both faces, four-sided SDF microtext, tilt-driven ROUT foil, chip/antenna contours and verify the WebGL rendering without claiming physical security or hardware frame rates.
 - [x] Implement fail-closed card status, atomic QR replay protection, source migration 0201, WebGL lifetime/motion fixes, dedicated signing secrets and independent jose RS256 verification.
 - [x] Run complete tests: 338 files, 1883 tests passed; offline PostgreSQL verifies replay, expiry, audit permissions and hardware status. Live acceptance is not inferred from tests.
 - [x] Add latest Google configuration aliases, issuer-scoped class validation and owner-only claim; both legacy Google profile paths also enforce ownership. 22 focused tests pass.
