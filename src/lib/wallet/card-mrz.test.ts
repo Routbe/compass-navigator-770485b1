@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { cardMrz, mrzCheckDigit, verifyMrz } from "./card-mrz";
+import { cardMrz, generateMRZ_TD1, mrzCheckDigit, verifyMrz } from "./card-mrz";
 
 const lines = cardMrz({ sovereignId: "RT-89K4-99X2-P", handle: "Léna.dev", space: "root", holderHash: "7KQ2XM", expiry: new Date("2036-11-03T00:00:00Z") });
 
 describe("card MRZ", () => {
+  it("keeps TD1 document and optional-field positions, not a 15-character document field", () => {
+    expect(lines[0]?.slice(0, 5)).toBe("I<RTB");
+    expect(lines[0]?.slice(15)).toHaveLength(15);
+    expect(lines[1]?.slice(15, 18)).toBe("RTB");
+  });
+  it("supports explicit transliterated display names without fetching legal identity", () => {
+    const named = generateMRZ_TD1({ sovereignId: "RT-89K4-99X2-P", handle: "lena", space: "root", surname: "Dèv", givenNames: "Léna" });
+    expect(named[2]).toBe("DEV<<LENA<<<<<<<<<<<<<<<<<<<<<");
+  });
   it("uses the ICAO 7-3-1 check digit", () => {
     // ICAO 9303 specimen document number.
     expect(mrzCheckDigit("L898902C3")).toBe(6);

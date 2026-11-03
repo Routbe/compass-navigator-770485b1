@@ -5,7 +5,7 @@
  */
 import qrcode from "qrcode-generator";
 import type { WalletCardPayload } from "@/lib/wallet/wallet-pass";
-import { cardMrz } from "@/lib/wallet/card-mrz";
+import { generateMRZ_TD1 } from "@/lib/wallet/card-mrz";
 
 export const CARD_RATIO = 1.588;
 export const FACE_W = 640;
@@ -290,10 +290,10 @@ export async function drawCardFaces(card: Omit<WalletCardPayload, "heroImageUrl"
   b.fillStyle = "#18181b";
   b.font = (await loadOcrB()) ? `400 27px "ROUT OCR-B", monospace` : `600 26px ui-monospace, SFMono-Regular, Menlo, monospace`;
   b.textAlign = "left";
-  const lines = cardMrz({ sovereignId: card.sovereignId, handle: card.handle, space: card.space, holderHash: card.serial.replace(/[^A-Za-z0-9]/g, "").slice(-6) });
+  const lines = generateMRZ_TD1({ sovereignId: card.sovereignId, handle: card.handle, space: card.space, holderHash: card.serial.replace(/[^A-Za-z0-9]/g, "").slice(-6) });
   const cw = (FACE_W - 64) / 30;
   lines.forEach((line, row) => {
-    for (let c = 0; c < line.length; c++) b.fillText(line[c]!, 32 + c * cw, mrzTop + 42 + row * 38);
+    for (let c = 0; c < line.length; c++) b.fillText(line.charAt(c), 32 + c * cw, mrzTop + 42 + row * 38);
   });
   return { front, back, mask };
 }
