@@ -1,0 +1,30 @@
+[
+  {
+    "viewport": "desktop",
+    "route": "/",
+    "checks": {
+      "menu": "passed, tools and infrastructure links visible; Escape closed",
+      "scroll": "passed, ecosystem and footer revealed",
+      "omniInput": "passed, /qr command navigated to /qr"
+    },
+    "screenshots": [
+      "/tmp/browser/compass-import/desktop-menu-ready.png",
+      "/tmp/browser/compass-import/desktop-ecosystem-ready.png",
+      "/tmp/browser/compass-import/desktop-bottom-ready.png"
+    ]
+  },
+  {
+    "viewport": "phone",
+    "route": "/",
+    "checks": {
+      "menu": "passed, tools and infrastructure links visible; Escape closed",
+      "scroll": "passed, ecosystem and footer revealed",
+      "omniInput": "passed, /qr command navigated to /qr"
+    },
+    "screenshots": [
+      "/tmp/browser/compass-import/phone-menu-ready.png",
+      "/tmp/browser/compass-import/phone-ecosystem-ready.png",
+      "/tmp/browser/compass-import/phone-bottom-ready.png"
+    ]
+  }
+]
