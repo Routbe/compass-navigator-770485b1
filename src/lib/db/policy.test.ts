@@ -23,6 +23,14 @@ beforeEach(() => {
 });
 
 describe("member profile write allowlist", () => {
+  it("limits raw profile reads to the session owner while keeping the public view readable", async () => {
+    const descriptor = { ...emptyDescriptor("profiles"), filters: [{ op: "eq" as const, column: "id", value: "other" }] };
+    const decision = await authorizeQuery(descriptor, memberId);
+    if (!decision.ok) throw new Error("Expected owner read");
+    expect(decision.descriptor.filters).toEqual([{ op: "eq", column: "id", value: memberId }]);
+    expect((await authorizeQuery(descriptor, null)).ok).toBe(false);
+    expect((await authorizeQuery(emptyDescriptor("public_profiles"), null)).ok).toBe(true);
+  });
   it("retains existing editable fields and forces the authenticated owner", async () => {
     const fields = {
       username: "member", display_name: "Member", tagline: "Hello",
