@@ -7,6 +7,10 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
+- [x] Implement uploaded four-language pairing, NFC recovery states and localized Google Wallet payloads; validate strict 3×30 MRZ before rendering.
+- [x] Review Google-supported NFC, sharing and callback controls; keep public profile passes free of private NFC secrets, first-saver ownership restrictions and false certification claims.
+- [ ] Activate Google REST updates and signed save/delete callbacks — blocked by Google issuer credentials, reviewed persisted-object provisioning and a vetted ECv2SigningOnly callback verifier with durable replay storage.
+- [ ] Activate Google Smart Tap and owner-bound passes — blocked by Google partner enablement, owner-only issuance and compatible terminal/verifier infrastructure.
 - [x] Read uploaded requirements and verify the existing Neon connection.
 - [x] Review existing card, Studio, account and Neon structures before integration.
 - [x] Confirm existing privacy validation, CMF material rules and cryptographic primitives; run 35 focused tests.

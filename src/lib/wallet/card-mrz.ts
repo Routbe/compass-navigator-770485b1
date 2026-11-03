@@ -63,10 +63,16 @@ export function generateMRZ_TD1(p: MrzInput): [string, string, string] {
   const composite = l1.slice(5, 30) + body.slice(0, 7) + body.slice(8, 15) + body.slice(18, 29);
   const l2 = body + mrzCheckDigit(composite);
   const l3 = pad(`${mrzChars(p.surname ?? "ROUT")}<<${mrzChars(p.givenNames ?? p.handle)}`, LINE);
-  return [l1, l2, l3];
+  const lines: [string, string, string] = [l1, l2, l3];
+  if (!isStrictTd1(lines) || !verifyMrz(lines).ok) throw new Error("Invalid generated ROUT TD1 payload");
+  return lines;
 }
 
 export const cardMrz = generateMRZ_TD1;
+
+export function isStrictTd1(input: readonly string[]): boolean {
+  return input.length === 3 && input.every((line) => /^[A-Z0-9<]{30}$/.test(line));
+}
 
 export type MrzCheck =
   | { ok: true; documentNumber: string; issuer: string; expiry: string | null }
@@ -74,7 +80,7 @@ export type MrzCheck =
 
 /** Offline integrity check only: not proof of identity or access authorization. */
 export function verifyMrz(input: string | string[]): MrzCheck {
-  const lines = (Array.isArray(input) ? input : input.split(/\r?\n/)).map((l) => l.trim().toUpperCase()).filter(Boolean);
+  const lines = Array.isArray(input) ? input : input.split(/\r?\n/);
   const [l1, l2, l3] = lines;
   if (!l1 || !l2 || !l3 || lines.length !== 3 || lines.some((l) => !/^[A-Z0-9<]{30}$/.test(l)) || !l1.startsWith("I<") || l1.slice(2, 5) !== MRZ_ISSUER) return { ok: false, reason: "format" };
   const digit = (s: string) => (s >= "0" && s <= "9" ? Number(s) : -1);

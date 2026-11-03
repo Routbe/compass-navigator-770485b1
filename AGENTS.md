@@ -17,3 +17,4 @@
 - Retain the standalone media worker as source only because persistent processing requires separate deployment outside the request-bound app.
 - Pair client cards only through reviewed factory inventory and a separate activation proof; WebNFC reads a hardware ID, never keys, because public NDEF data cannot prove ownership.
 - Keep standard TD1 field positions and 7/3/1 integrity checks while labeling hash-filled birth fields as a privacy extension, because layout/checksums alone do not establish ICAO certification.
+- Wallet and physical-card translations use the exhaustive browser-safe wallet dictionary and pure pairing transitions; NFC readers are aborted on exit and server success alone triggers activation feedback, because public tag detection is not ownership verification.

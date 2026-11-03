@@ -39,7 +39,7 @@ describe("wallet passes", () => {
     const c = googleSaveClaims(event, { issuerId: "338", serviceAccountEmail: "sa@x.iam", origins: ["https://rout.be"] });
     const obj = c.payload.genericObjects[0]!;
     expect("barcode" in obj).toBe(false);
-    expect(obj.subheader.defaultValue.value).toBe("Informatief");
+    expect(obj.subheader.translatedValues.map((value) => value.language).sort()).toEqual(["de", "fr", "nl"]);
   });
 });
 
