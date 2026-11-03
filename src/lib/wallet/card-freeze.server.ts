@@ -2,7 +2,7 @@
  * ROUT Card database access: freeze (db/0198), CMF designs, single-use secure
  * QR nonces, physical keys and challenges (db/0199). Until a migration is
  * applied by the database owner, reads degrade (`available: false`) and
- * writes throw a 503-style error, so the card keeps working without them.
+ * writes throw a 503-style error. Authentication always fails closed.
  */
 import { sql } from "@/lib/neon";
 
@@ -21,20 +21,24 @@ export async function cardFrozen(serial: string): Promise<{ frozen: boolean; ava
     const rows = await sql.query("select public.rout_card_frozen($1) as f", [serial]);
     return { frozen: rows[0]?.f === true, available: true };
   } catch (err) {
-    if (missingSchema(err)) return { frozen: false, available: false };
+    if (missingSchema(err)) return { frozen: true, available: false };
     throw err;
   }
 }
 
 /** Card frozen, or any physical key linked to it frozen/revoked. */
-export async function cardStatus(serial: string): Promise<"active" | "frozen"> {
+export async function cardStatus(serial: string): Promise<"active" | "frozen" | "unavailable"> {
   try {
     const rows = await sql.query("select public.rout_card_status_by_serial($1) as s", [serial]);
-    return rows[0]?.s === "frozen" ? "frozen" : "active";
+    return rows[0]?.s === "active" ? "active" : rows[0]?.s === "frozen" ? "frozen" : "unavailable";
   } catch (err) {
-    if (!missingSchema(err)) throw err;
-    return (await cardFrozen(serial)).frozen ? "frozen" : "active";
+    return "unavailable";
   }
+}
+
+/** Universal positive-active gate; absent/unknown storage is never active. */
+export async function validateCardActive(serial: string): Promise<boolean> {
+  return (await cardStatus(serial)) === "active";
 }
 
 /** Runs inside requireAuth's DB context, so RLS pins user_id to the caller. */
@@ -165,6 +169,7 @@ export async function setMyKeyStatus(hardwareId: string, status: "active" | "fro
 
 export async function issueChallenge(hardwareId: string, nonceHash: string): Promise<boolean | null> {
   try {
+    if (!(await hardwareActive(hardwareId))) return false;
     const rows = await sql.query("select public.rout_hw_issue_challenge($1::uuid, $2) as ok", [hardwareId, nonceHash]);
     return rows[0]?.ok === true;
   } catch (err) {
@@ -174,9 +179,17 @@ export async function issueChallenge(hardwareId: string, nonceHash: string): Pro
 }
 
 export async function consumeChallenge(hardwareId: string, nonceHash: string): Promise<{ public_key: string; key_alg: string; status: string } | null> {
+  if (!(await hardwareActive(hardwareId))) return null;
   const rows = await sql.query("select * from public.rout_hw_consume_challenge($1::uuid, $2)", [hardwareId, nonceHash]);
   const r = rows[0];
-  return r && r.public_key ? (r as { public_key: string; key_alg: string; status: string }) : null;
+  return r && r.public_key && r.status === "active" ? (r as { public_key: string; key_alg: string; status: string }) : null;
+}
+
+async function hardwareActive(hardwareId: string): Promise<boolean> {
+  try {
+    const rows = await sql.query("select public.rout_card_status_by_hardware($1::uuid) as s", [hardwareId]);
+    return rows[0]?.s === "active";
+  } catch { return false; }
 }
 
 export async function recordScan(hardwareId: string, ok: boolean): Promise<void> {

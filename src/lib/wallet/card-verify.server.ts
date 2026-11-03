@@ -8,7 +8,7 @@ export type SecureVerdict =
   | { status: "invalid" | "expired" | "replayed" | "frozen" };
 
 export function verdictHttpStatus(v: SecureVerdict): number {
-  return v.status === "valid" ? 200 : v.status === "frozen" ? 403 : 401;
+  return v.status === "valid" ? 200 : v.status === "frozen" || v.status === "replayed" ? 403 : 401;
 }
 
 export async function verifySecureCardTokenCore(token: string): Promise<SecureVerdict> {
@@ -19,9 +19,11 @@ export async function verifySecureCardTokenCore(token: string): Promise<SecureVe
   const { generateWalletPayload } = await import("./wallet-payload.server");
   const card = await generateWalletPayload(r.payload.h, { space: r.payload.s === "a" ? "alias" : "root" });
   if (!card) return { status: "invalid" };
-  const { cardStatus, useTokenNonce } = await import("./card-freeze.server");
-  if ((await cardStatus(card.serial)) === "frozen") return { status: "frozen" };
-  const first = await useTokenNonce(r.payload.n, r.payload.exp);
-  if (first === false) return { status: "replayed" };
-  return { status: "valid", display_name: card.displayName, avatar_url: card.heroImageUrl, replay_protected: first === true };
+  const { validateCardActive, useTokenNonce } = await import("./card-freeze.server");
+  if (!(await validateCardActive(card.serial))) return { status: "frozen" };
+  try {
+    const first = await useTokenNonce(r.payload.n, r.payload.exp);
+    if (first !== true) return { status: first === false ? "replayed" : "invalid" };
+  } catch { return { status: "invalid" }; }
+  return { status: "valid", display_name: card.displayName, avatar_url: card.heroImageUrl, replay_protected: true };
 }

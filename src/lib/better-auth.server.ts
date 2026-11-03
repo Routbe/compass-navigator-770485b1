@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { betterAuth } from "better-auth";
 import { hashCredential, verifyCredentialHash } from "@/lib/auth/credential-hash.server";
 import { magicLink } from "better-auth/plugins/magic-link";
@@ -51,17 +50,12 @@ function envAny(name: string): string | undefined {
 }
 
 /**
- * Better Auth signing secret. Prefers BETTER_AUTH_SECRET/AUTH_SECRET; otherwise
- * derives a stable one from SESSION_SECRET / OAUTH_STATE_SECRET / DATABASE_URL so
- * a missing variable no longer breaks every sign-in (logged as a warning).
+ * Better Auth requires a dedicated signing secret, never database credentials.
  */
 export function resolveAuthSecret(): { secret: string; derived: boolean } | null {
   const direct = envAny("BETTER_AUTH_SECRET");
   if (direct && direct.length >= 32) return { secret: direct, derived: false };
-  const seed = env("SESSION_SECRET") ?? env("OAUTH_STATE_SECRET") ?? env("DATABASE_URL") ?? env("NEON_API_KEY");
-  if (!seed) return null;
-  const secret = createHash("sha256").update(`rout-better-auth:${seed}`).digest("hex");
-  return { secret, derived: true };
+  return null;
 }
 
 function pair(id: string, secret: string) {
@@ -129,7 +123,6 @@ export function createRoutAuth(request?: Request) {
   }
   const resolved = resolveAuthSecret();
   if (!resolved) throw new Error("BETTER_AUTH_SECRET ontbreekt.");
-  if (resolved.derived) console.warn("[auth] BETTER_AUTH_SECRET missing or <32 chars; using derived fallback. Set it on Vercel.");
   const secret = resolved.secret;
 
   const socialProviders: Record<string, unknown> = {};
