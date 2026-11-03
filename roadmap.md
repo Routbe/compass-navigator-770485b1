@@ -7,6 +7,7 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
+- [ ] Implement latest Google service-account configuration aliases, configured class and owner-only pass claim with official-library compatibility review.
 - [x] Complete manual audit of security, integration and uploaded WebGL requirements; record evidence and release blockers in audit.md.
 - [ ] Incorporate automated deep security scan findings — blocked by running scanner; notification will report completion.
 - [x] Implement uploaded four-language pairing, NFC recovery states and localized Google Wallet payloads; validate strict 3×30 MRZ before rendering.
