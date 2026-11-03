@@ -15,3 +15,5 @@
 - Retain the existing cookie-based ROUT account adapters without a Cloud bearer attacher because no account or data migration has been authorized.
 - Keep database migrations as source only until the existing service is connected and reviewed because importing code does not authorize changing live data.
 - Retain the standalone media worker as source only because persistent processing requires separate deployment outside the request-bound app.
+- Pair client cards only through reviewed factory inventory and a separate activation proof; WebNFC reads a hardware ID, never keys, because public NDEF data cannot prove ownership.
+- Keep standard TD1 field positions and 7/3/1 integrity checks while labeling hash-filled birth fields as a privacy extension, because layout/checksums alone do not establish ICAO certification.
