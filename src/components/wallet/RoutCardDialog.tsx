@@ -1,0 +1,528 @@
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
+import { useServerFn } from "@tanstack/react-start";
+import { Loader2, RotateCw, ShieldCheck, Smartphone, UserPlus, Wallet, ZoomIn, ZoomOut } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { filterGyro } from "./card-physics";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { downloadVCard } from "@/lib/vcard";
+import { getCardLiveness, getSecureCardToken, getWalletCard, getWalletStatus, saveMyCardDesign, setMyCardFrozen, verifyCardLiveCode } from "@/lib/wallet/wallet.functions";
+import { pickCardView } from "@/lib/wallet/card-liveness";
+import { contrastRatio } from "@/lib/wallet/card-style";
+import { CARD_MATERIALS, defaultMaterial, materialsFor, nearestSafeAccent, type AgeTier, type CardMaterial } from "@/lib/wallet/card-cmf";
+import { checkCardText, PRIVACY_MESSAGE } from "@/lib/wallet/card-privacy";
+import { SECURE_ROTATE_MS } from "@/lib/wallet/card-token";
+import { CardKeysPanel } from "./CardKeysPanel";
+import type { WalletStatus } from "@/lib/wallet/wallet-pass";
+import { drawCardFaces, hasWebGL, type CardFaces } from "./card-faces";
+import type { CardFinish, LiveRef, SecureRef, TiltRef, ZoomRef } from "./RoutCard3D";
+
+const RoutCard3D = lazy(() => import("./RoutCard3D"));
+
+type Card = NonNullable<Awaited<ReturnType<typeof getWalletCard>>>;
+
+/** Any WebGL crash falls back to the CSS card instead of an empty dialog. */
+class GlBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
+/** CSS 3D fallback with the exact same face images. */
+function FlatCard({ faces, flipped, tilt, onFlip }: { faces: { front: string; back: string }; flipped: boolean; tilt: { x: number; y: number }; onFlip: () => void }) {
+  return (
+    <button type="button" onClick={onFlip} className="mx-auto block h-full max-h-[420px] [perspective:1200px]" style={{ aspectRatio: "1 / 1.588" }} aria-label="Kaart omdraaien">
+      <span
+        className="relative block h-full w-full transition-transform duration-700 [transform-style:preserve-3d] motion-reduce:transition-none"
+        style={{ transform: `rotateY(${(flipped ? 180 : 0) + tilt.x * 18}deg) rotateX(${-tilt.y * 12}deg)` }}
+      >
+        <img src={faces.front} alt="" className="absolute inset-0 h-full w-full rounded-2xl shadow-2xl [backface-visibility:hidden]" />
+        <img src={faces.back} alt="" className="absolute inset-0 h-full w-full rounded-2xl shadow-2xl [backface-visibility:hidden] [transform:rotateY(180deg)]" />
+      </span>
+    </button>
+  );
+}
+
+function defaultMaterialFor(fg: string): CardMaterial {
+  return CARD_MATERIALS.find((m) => m.id === (fg === "#111111" ? "frosted-alpine-glass" : "obsidian-titanium"))!;
+}
+
+/**
+ * "ROUT Card": a 3D digital twin of the member's card, plus Google Wallet,
+ * Apple Wallet and vCard exports — all from the same server-built payload.
+ */
+export function RoutCardDialog({ open, onOpenChange, handle, space }: { open: boolean; onOpenChange: (v: boolean) => void; handle: string; space?: "root" | "alias" }) {
+  const { t } = useTranslation();
+  const loadCard = useServerFn(getWalletCard);
+  const loadStatus = useServerFn(getWalletStatus);
+  const [card, setCard] = useState<Card | null | undefined>(undefined);
+  const [status, setStatus] = useState<WalletStatus | null>(null);
+  const [faces, setFaces] = useState<CardFaces | null>(null);
+  const [images, setImages] = useState<{ front: string; back: string } | null>(null);
+  const [webgl, setWebgl] = useState<boolean | null>(null);
+  const [flipped, setFlipped] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [gyro, setGyro] = useState(false);
+  const tilt: TiltRef = useRef({ x: 0, y: 0, at: 0 });
+  const [flatTilt, setFlatTilt] = useState({ x: 0, y: 0 });
+  const live: LiveRef = useRef({ seed: [0.5, 0.5, 0.5, 0.5], expiresAt: 0, windowMs: 30_000 });
+  const zoom: ZoomRef = useRef(0);
+  const [zoomed, setZoomed] = useState(false);
+  const [code, setCode] = useState<string | null>(null);
+  const [secureUrl, setSecureUrl] = useState<string | null>(null);
+  const [ownerState, setOwnerState] = useState<{ owner: boolean; frozen: boolean; available: boolean }>({ owner: false, frozen: false, available: false });
+  const [tier, setTier] = useState<AgeTier>("sovereign");
+  const secure: SecureRef = useRef({ iat: 0, exp: 0 });
+  const loadSecure = useServerFn(getSecureCardToken);
+  const saveDesign = useServerFn(saveMyCardDesign);
+  // CMF studio (owner): material, accent, printed text. Visitors see the saved design.
+  const [materialId, setMaterialId] = useState<string | null>(null);
+  const [accent, setAccent] = useState<string | null>(null);
+  const [accentNote, setAccentNote] = useState<string | null>(null);
+  const [nameText, setNameText] = useState<string | null>(null);
+  const [regionText, setRegionText] = useState("");
+  const [liveNonce, setLiveNonce] = useState(0);
+  const freezeCard = useServerFn(setMyCardFrozen);
+  const material: CardMaterial = (CARD_MATERIALS.find((m) => m.id === (materialId ?? card?.materialId)) ?? (card ? defaultMaterialFor(card.hexForegroundColor) : CARD_MATERIALS[0]))!;
+  const finish: CardFinish = material.junior ? "junior" : material.finish;
+  const accentHex = accent ?? card?.hexForegroundColor ?? "#ffffff";
+  const nameHit = nameText !== null ? checkCardText(nameText) : null;
+  const regionHit = regionText ? checkCardText(regionText) : null;
+  const styledCard = card
+    ? {
+        ...card,
+        hexBackgroundColor: materialId || card.materialId ? material.baseHex : card.hexBackgroundColor,
+        hexForegroundColor: accentHex,
+        displayName: nameText && !nameHit ? nameText : card.displayName,
+        ...(regionText && !regionHit ? { regionDisplay: regionText } : {}),
+      }
+    : card;
+  const [verifyInput, setVerifyInput] = useState("");
+  const [verdict, setVerdict] = useState<"valid" | "invalid" | "limited" | null>(null);
+  const loadLive = useServerFn(getCardLiveness);
+  const verifyLive = useServerFn(verifyCardLiveCode);
+
+  useEffect(() => {
+    if (!open || card !== undefined) return;
+    setWebgl(hasWebGL());
+    // Privacy filter: only public card fields reach the 3D card.
+    loadCard({ data: { handle, space } }).then((c) => setCard(c ? pickCardView(c) : null)).catch(() => setCard(null));
+    loadStatus().then(setStatus).catch(() => setStatus({ apple: false, google: false }));
+  }, [open, card, handle, space, loadCard, loadStatus]);
+
+  useEffect(() => {
+    const card = styledCard;
+    const faceTier = finish === "junior" ? ("junior" as const) : ("adult" as const);
+    if (!card || webgl === null) return;
+    let alive = true;
+    // WebGL draws names as SDF text; the CSS fallback keeps them printed.
+    void Promise.all([drawCardFaces(card, { sdfText: webgl, secureQr: secureUrl, tier: faceTier }), drawCardFaces(card, { secureQr: secureUrl, tier: faceTier })]).then(([gl, flat]) => {
+      if (!alive) return;
+      setFaces(gl);
+      setImages({ front: flat.front.toDataURL("image/png"), back: flat.back.toDataURL("image/png") });
+    });
+    if (!webgl) console.warn("[rout-card] WebGL unavailable: showing the CSS card without optical security layers.");
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card, webgl, secureUrl, styledCard?.hexBackgroundColor, styledCard?.hexForegroundColor, styledCard?.displayName, styledCard && "regionDisplay" in styledCard ? styledCard.regionDisplay : "", finish === "junior"]);
+
+  // A minor whose saved/default material is outside their tier gets the first allowed one.
+  useEffect(() => {
+    if (ownerState.owner && !material.tiers.includes(tier)) setMaterialId(defaultMaterial(tier).id);
+  }, [ownerState.owner, tier, material]);
+
+  // Secure QR (owner): fresh 60 s single-use token every 45 s, off-thread from the render loop.
+  useEffect(() => {
+    if (!open || !ownerState.owner || ownerState.frozen) {
+      secure.current = { iat: 0, exp: 0 };
+      setSecureUrl(null);
+      return;
+    }
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      try {
+        const r = await loadSecure({ data: { space } });
+        if (!alive) return;
+        if (!r || r.frozen) {
+          secure.current = { iat: 0, exp: 0 };
+          setSecureUrl(null);
+          return;
+        }
+        const skew = Date.now() - r.serverNow;
+        secure.current = { iat: r.iat + skew, exp: r.exp + skew };
+        setSecureUrl(r.url);
+        timer = setTimeout(() => void tick(), SECURE_ROTATE_MS);
+      } catch {
+        if (alive) timer = setTimeout(() => void tick(), 10_000);
+      }
+    };
+    void tick();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [open, ownerState.owner, ownerState.frozen, space, loadSecure, liveNonce]);
+
+  const pickAccent = (hex: string) => {
+    const safe = nearestSafeAccent(hex, material.baseHex);
+    setAccent(safe);
+    setAccentNote(safe !== hex.toLowerCase() ? t("card.accentSnapped", { defaultValue: "Kleur genegeerd: Onvoldoende contrast voor fysieke leesbaarheid en toegankelijkheid." }) : null);
+  };
+
+  const pickMaterial = (m: CardMaterial) => {
+    setMaterialId(m.id);
+    const safe = nearestSafeAccent(accentHex, m.baseHex);
+    if (safe !== accentHex.toLowerCase()) {
+      setAccent(safe);
+      setAccentNote(t("card.accentSnapped", { defaultValue: "Kleur genegeerd: Onvoldoende contrast voor fysieke leesbaarheid en toegankelijkheid." }));
+    }
+  };
+
+  const saveStudio = async () => {
+    if (!card || nameHit || regionHit) return;
+    setBusy("design");
+    try {
+      const r = await saveDesign({ data: { space, materialId: material.id, accentHex, displayName: (nameText ?? card.displayName).trim() || card.displayName, region: regionText.trim() } });
+      if (r.ok) toast.success(t("card.designSaved", { defaultValue: "Ontwerp opgeslagen als productiebestand." }));
+      else if (r.error === "privacy") toast.error(PRIVACY_MESSAGE);
+      else if (r.error === "unavailable") toast.error(t("card.designUnavailable", { defaultValue: "Ontwerpen opslaan is nog niet ingesteld in de database." }));
+      else toast.error(t("card.designRejected", { defaultValue: "Dit ontwerp kan niet: kies een ander materiaal of een leesbaardere kleur." }));
+    } catch {
+      toast.error(t("card.designFailed", { defaultValue: "Opslaan lukt nu niet." }));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Live proof-of-now: new seed (and the owner's code) every server window.
+  useEffect(() => {
+    if (!open || !card) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      try {
+        const r = await loadLive({ data: { handle, space } });
+        if (!alive || !r) return;
+        const skew = Date.now() - r.serverNow;
+        live.current = { seed: r.seed, expiresAt: r.expiresAt + skew, windowMs: 30_000 };
+        setCode(r.code);
+        setOwnerState({ owner: r.owner, frozen: r.frozen, available: r.freezeAvailable });
+        setTier(r.tier);
+        timer = setTimeout(() => void tick(), Math.max(1000, r.expiresAt + skew - Date.now() + 250));
+      } catch {
+        if (alive) timer = setTimeout(() => void tick(), 10_000);
+      }
+    };
+    void tick();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [open, card, handle, space, loadLive, liveNonce]);
+
+  const toggleFreeze = async () => {
+    const next = !ownerState.frozen;
+    if (next && !window.confirm(t("card.freezeConfirm", { defaultValue: "Kaart bevriezen? Alle QR- en live-codes worden meteen ongeldig tot je weer ontdooit." }))) return;
+    setBusy("freeze");
+    try {
+      await freezeCard({ data: { frozen: next, space } });
+      toast.success(next ? t("card.frozen", { defaultValue: "Kaart bevroren." }) : t("card.unfrozen", { defaultValue: "Kaart weer actief." }));
+      setLiveNonce((n) => n + 1);
+    } catch {
+      toast.error(t("card.freezeFailed", { defaultValue: "Bevriezen lukt nu niet." }));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Gyroscope tilt (after the visitor allowed motion access on iOS).
+  useEffect(() => {
+    if (!open || !gyro) return;
+    const onTilt = (e: DeviceOrientationEvent) => {
+      const prev = tilt.current;
+      const dt = Math.min(0.1, (performance.now() - prev.at) / 1000 || 1 / 60);
+      const x = filterGyro(prev.x, Math.max(-1, Math.min(1, (e.gamma ?? 0) / 35)), dt);
+      const y = filterGyro(prev.y, Math.max(-1, Math.min(1, ((e.beta ?? 45) - 45) / 35)), dt);
+      tilt.current = { x, y, at: performance.now() };
+      setFlatTilt({ x, y });
+    };
+    window.addEventListener("deviceorientation", onTilt);
+    return () => window.removeEventListener("deviceorientation", onTilt);
+  }, [open, gyro]);
+
+  useEffect(() => {
+    if (webgl === false && images) setReady(true);
+  }, [webgl, images]);
+
+  const enableGyro = async () => {
+    const D = (window as unknown as { DeviceOrientationEvent?: { requestPermission?: () => Promise<string> } }).DeviceOrientationEvent;
+    try {
+      if (D?.requestPermission && (await D.requestPermission()) !== "granted") return;
+      setGyro(true);
+    } catch {
+      toast.error(t("card.gyroDenied"));
+    }
+  };
+
+  const onPointer = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width) * 2 - 1;
+    const y = -(((e.clientY - r.top) / r.height) * 2 - 1);
+    tilt.current = { x, y, at: performance.now() };
+    setFlatTilt({ x, y });
+  }, []);
+
+  const flip = () => {
+    tilt.current = { ...tilt.current, at: performance.now() };
+    setFlipped((v) => !v);
+  };
+
+  const toggleZoom = () => {
+    const next = !zoomed;
+    zoom.current = next ? 1 : 0;
+    tilt.current = { ...tilt.current, at: performance.now() };
+    setZoomed(next);
+  };
+
+  const checkCode = async () => {
+    setVerdict(null);
+    try {
+      const r = await verifyLive({ data: { handle, space, code: verifyInput } });
+      setVerdict(r.limited ? "limited" : r.valid ? "valid" : "invalid");
+    } catch {
+      setVerdict("invalid");
+    }
+  };
+
+  const addGoogle = async () => {
+    setBusy("google");
+    // Open synchronously so the save page is not blocked as a popup.
+    const tab = window.open("", "_blank");
+    try {
+      const res = await fetch(`/api/wallet/google?username=${encodeURIComponent(handle)}${space ? `&space=${space}` : ""}`);
+      const body = (await res.json()) as { saveUrl?: string; error?: string };
+      if (!res.ok || !body.saveUrl) throw new Error(body.error ?? String(res.status));
+      if (tab) tab.location.href = body.saveUrl;
+      else window.location.href = body.saveUrl;
+    } catch {
+      tab?.close();
+      toast.error(t("wallet.failed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const addApple = async () => {
+    setBusy("apple");
+    try {
+      const res = await fetch(`/api/wallet/profile/${encodeURIComponent(handle)}?type=apple${space ? `&space=${space}` : ""}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `rout-${handle}.pkpass`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch {
+      toast.error(t("wallet.failed"));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveVcf = async () => {
+    if (!card) return;
+    setBusy("vcf");
+    try {
+      await downloadVCard({ handle: card.handle, displayName: card.displayName, tagline: card.subheader, avatarUrl: card.avatarPath, profileUrl: card.url });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const flat = images ? <FlatCard faces={images} flipped={flipped} tilt={flatTilt} onFlip={flip} /> : null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5" aria-hidden /> {t("card.title")}
+          </DialogTitle>
+          <DialogDescription>{t("card.description")}</DialogDescription>
+        </DialogHeader>
+
+        <div
+          className="relative h-[420px] w-full touch-none select-none overflow-hidden rounded-2xl bg-gradient-to-b from-muted/40 to-muted"
+          onPointerMove={onPointer}
+          data-scene-ready={ready ? "true" : undefined}
+        >
+          {card === null ? (
+            <p className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">{t("card.notFound")}</p>
+          ) : !faces || webgl === null ? (
+            <div className="flex h-full items-center justify-center" aria-busy="true"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden /></div>
+          ) : webgl ? (
+            <GlBoundary fallback={<div className="flex h-full items-center p-4">{flat}</div>}>
+              <Suspense fallback={<div className="flex h-full items-center p-4">{flat}</div>}>
+                <RoutCard3D
+                  faces={faces}
+                  finish={finish}
+                  pbr={material}
+                  secure={secure}
+                  flipped={flipped}
+                  tilt={tilt}
+                  live={live}
+                  zoom={zoom}
+                  onFlip={flip}
+                  onReady={() => setReady(true)}
+                  text={{ displayName: styledCard!.displayName, handle: card!.handle, subheader: styledCard && "regionDisplay" in styledCard && styledCard.regionDisplay ? styledCard.regionDisplay : card!.subheader, fg: styledCard!.hexForegroundColor, sovereignId: card!.sovereignId, code }}
+                />
+              </Suspense>
+            </GlBoundary>
+          ) : (
+            <div className="flex h-full items-center p-4">{flat}</div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+          <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={flip}><RotateCw className="h-3.5 w-3.5" aria-hidden /> {t("card.flip")}</Button>
+          {webgl && faces && (
+            <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={toggleZoom} aria-pressed={zoomed}>
+              {zoomed ? <ZoomOut className="h-3.5 w-3.5" aria-hidden /> : <ZoomIn className="h-3.5 w-3.5" aria-hidden />} {t("card.zoom", { defaultValue: "Loep" })}
+            </Button>
+          )}
+          {!gyro && <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => void enableGyro()}><Smartphone className="h-3.5 w-3.5" aria-hidden /> {t("card.gyro")}</Button>}
+        </div>
+
+        {card && ownerState.owner && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border p-3">
+            <p className="text-xs text-muted-foreground">
+              {!ownerState.available
+                ? t("card.freezeUnavailable", { defaultValue: "Bevriezen is nog niet ingesteld in de database." })
+                : ownerState.frozen
+                  ? t("card.frozenNote", { defaultValue: "Je kaart is bevroren: alle codes zijn ongeldig." })
+                  : t("card.freezeNote", { defaultValue: "Kaart kwijt? Bevries hem en alle codes worden meteen ongeldig." })}
+            </p>
+            <Button type="button" size="sm" variant={ownerState.frozen ? "default" : "destructive"} disabled={!ownerState.available || busy === "freeze"} onClick={() => void toggleFreeze()}>
+              {ownerState.frozen ? t("card.unfreeze", { defaultValue: "Ontdooien" }) : t("card.freeze", { defaultValue: "Bevriezen" })}
+            </Button>
+          </div>
+        )}
+
+        {card && ownerState.owner && (
+          <section className="grid gap-3 rounded-2xl border border-border p-3" aria-labelledby="rout-cmf-title">
+            <div className="flex items-baseline justify-between">
+              <h3 id="rout-cmf-title" className="text-sm font-semibold">{t("card.studio", { defaultValue: "Materiaal & afwerking" })}</h3>
+              <span className="text-[11px] text-muted-foreground">{tier === "minor" ? t("card.tierMinor", { defaultValue: "Junior-tier" }) : t("card.tierSovereign", { defaultValue: "Sovereign-tier" })}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("card.studio", { defaultValue: "Materiaal & afwerking" })}>
+              {materialsFor(tier).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={material.id === m.id}
+                  onClick={() => pickMaterial(m)}
+                  className={cn("flex items-center gap-2 rounded-xl border p-2 text-left text-xs transition-colors", material.id === m.id ? "border-foreground bg-muted" : "border-border hover:bg-muted/50")}
+                >
+                  <span aria-hidden className="h-7 w-7 shrink-0 rounded-md border border-border" style={{ background: `linear-gradient(135deg, ${m.baseHex}, ${m.finish === "holo" ? "#7dd3fc" : m.baseHex})` }} />
+                  <span className="grid">
+                    <span className="font-medium">{m.name}</span>
+                    <span className="text-[10px] text-muted-foreground">M {m.metalness.toFixed(2)} · R {m.roughness.toFixed(2)}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="grid gap-1.5">
+              <label htmlFor="rout-accent" className="text-xs font-medium">{t("card.accent", { defaultValue: "Accentkleur (tekst, ring, logo)" })}</label>
+              <div className="flex items-center gap-2">
+                <input id="rout-accent" type="color" value={accentHex} onChange={(e) => pickAccent(e.target.value)} className="h-9 w-12 cursor-pointer rounded-md border border-border bg-transparent" />
+                <span className="text-xs text-muted-foreground">{t("card.contrast", { defaultValue: "Contrast {{r}}:1", r: contrastRatio(accentHex, material.baseHex).toFixed(2) })}</span>
+              </div>
+              {accentNote && <p role="status" className="text-xs text-muted-foreground">{accentNote}</p>}
+            </div>
+            <div className="grid gap-1.5">
+              <label htmlFor="rout-card-name" className="text-xs font-medium">{t("card.nameOnCard", { defaultValue: "Naam op de kaart" })}</label>
+              <Input id="rout-card-name" value={nameText ?? card.displayName} maxLength={40} onChange={(e) => setNameText(e.target.value)} aria-invalid={!!nameHit} className={cn("h-9", nameHit && "border-destructive focus-visible:ring-destructive")} />
+              <label htmlFor="rout-card-region" className="text-xs font-medium">{t("card.regionOnCard", { defaultValue: "Regio (bv. Brussel, BE)" })}</label>
+              <Input id="rout-card-region" value={regionText} maxLength={40} onChange={(e) => setRegionText(e.target.value)} aria-invalid={!!regionHit} className={cn("h-9", regionHit && "border-destructive focus-visible:ring-destructive")} />
+              {(nameHit || regionHit) && <p role="alert" className="text-xs text-destructive">{PRIVACY_MESSAGE}</p>}
+            </div>
+            <Button type="button" size="sm" onClick={() => void saveStudio()} disabled={busy !== null || !!nameHit || !!regionHit}>
+              {busy === "design" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null} {t("card.saveDesign", { defaultValue: "Ontwerp opslaan" })}
+            </Button>
+          </section>
+        )}
+
+        {card && ownerState.owner && <CardKeysPanel space={space} />}
+
+        {card && (
+          <div className="rounded-2xl border border-border p-3">
+            {code ? (
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                {t("card.liveOwner", { defaultValue: "Je live-code staat op de achterkant en wisselt elke 30 seconden. Een screenshot is dus snel ongeldig." })}
+              </p>
+            ) : (
+              <form
+                className="grid gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void checkCode();
+                }}
+              >
+                <label htmlFor="rout-live-code" className="flex items-center gap-2 text-xs font-medium">
+                  <ShieldCheck className="h-4 w-4 text-primary" aria-hidden /> {t("card.verifyLabel", { defaultValue: "Echtheid controleren: vraag de live-code op de achterkant" })}
+                </label>
+                <div className="flex gap-2">
+                  <Input id="rout-live-code" value={verifyInput} onChange={(e) => { setVerifyInput(e.target.value); setVerdict(null); }} maxLength={12} autoComplete="off" spellCheck={false} placeholder="ABC 123" className="h-9 font-mono uppercase tracking-widest" />
+                  <Button type="submit" size="sm" variant="outline" className="h-9" disabled={verifyInput.trim().length < 6}>{t("card.verify", { defaultValue: "Controleer" })}</Button>
+                </div>
+                {verdict && (
+                  <p role="status" className={cn("text-xs", verdict === "valid" ? "text-primary" : "text-destructive")}>
+                    {verdict === "valid"
+                      ? t("card.verifyValid", { defaultValue: "Echt: deze code komt van de kaarthouder, nu." })
+                      : verdict === "limited"
+                        ? t("card.verifyLimited", { defaultValue: "Te veel pogingen. Probeer het over een paar minuten opnieuw." })
+                        : t("card.verifyInvalid", { defaultValue: "Niet geldig of verlopen. Vraag de huidige code." })}
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
+        )}
+
+        <div className="grid gap-2">
+          <Button
+            type="button"
+            className="h-11 gap-2 rounded-full bg-foreground text-background hover:bg-foreground/90"
+            disabled={!card || busy !== null || status?.google === false}
+            onClick={() => void addGoogle()}
+          >
+            {busy === "google" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Wallet className="h-4 w-4" aria-hidden />}
+            Add to Google Wallet
+          </Button>
+          <Button type="button" variant="outline" className="h-11 gap-2 rounded-full" disabled={!card || busy !== null || status?.apple === false} onClick={() => void addApple()}>
+            {busy === "apple" ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Wallet className="h-4 w-4" aria-hidden />}
+            {t("wallet.apple")}
+          </Button>
+          <Button type="button" variant="outline" className="h-11 gap-2 rounded-full" disabled={!card || busy !== null} onClick={() => void saveVcf()}>
+            <UserPlus className="h-4 w-4" aria-hidden /> {t("card.vcf")}
+          </Button>
+          {status && (!status.google || !status.apple) && <p className="text-center text-xs text-muted-foreground">{t("wallet.partly")}</p>}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
