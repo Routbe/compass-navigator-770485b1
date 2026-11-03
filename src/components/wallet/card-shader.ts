@@ -93,12 +93,11 @@ float contour(float distanceToEdge, float width) {
 void main() {
   vec4 base = texture2D(uMap, vUv);
   vec3 mask = texture2D(uMask, vUv).rgb * (1.0 - uBack);
-  // Never print optical layers over QR quiet zones, portraits, names or MRZ.
+  // Never print optical layers over QR quiet zones, portraits or MRZ.
   float frontReserved = max(boxMask(vUv, vec2(0.047, 0.033), vec2(0.242, 0.158)),
-    max(boxMask(vUv, vec2(0.07, 0.18), vec2(0.93, 0.34)),
-    1.0 - smoothstep(0.235, 0.25, length((vUv - vec2(0.5, 0.58)) * vec2(1.0, 1.588)))));
+    1.0 - smoothstep(0.235, 0.25, length((vUv - vec2(0.5, 0.58)) * vec2(1.0, 1.588))));
   float backReserved = max(boxMask(vUv, vec2(0.108, 0.392), vec2(0.892, 0.889)),
-    max(1.0 - smoothstep(0.148, 0.16, vUv.y), boxMask(vUv, vec2(0.065, 0.22), vec2(0.935, 0.37))));
+    1.0 - smoothstep(0.148, 0.16, vUv.y));
   float printable = 1.0 - mix(frontReserved, backReserved, uBack);
 
   // Emboss: height gradient from the mask's blue channel bends the normal.
@@ -158,11 +157,11 @@ void main() {
 
   vec3 col = base.rgb * (0.38 + 0.72 * diff);
   col *= 1.0 - guilloche * 0.08 * (isMetal + isHolo);
-  vec3 metalTint = mix(vec3(1.0), base.rgb + 0.35, 0.5 * isMetal);
-  col += spec * metalTint * (1.0 - rough);
+  vec3 metalTint = mix(vec3(1.0), base.rgb + 0.08, 0.8 * isMetal);
+  col += min(spec, 1.6) * metalTint * (1.0 - rough) * 0.28;
   // Clearcoat lacquer: a tight white lobe on top, weighted by Fresnel.
   col += pow(NdotH, 900.0) * 6.0 * uClearcoat * (0.04 + 0.96 * pow(1.0 - cosV, 5.0)) + pow(NdotH, 900.0) * 1.2 * uClearcoat;
-  col += env * fres * mix(0.35, 0.6, isGlass);
+  col += env * fres * mix(0.09, 0.2, isGlass);
   col = mix(col, film * (0.55 + env * 0.5 + spec * 0.8), foil * (0.55 + 0.4 * (1.0 - cosV)));
   float inkAngle = clamp((1.0 - cosV) * 2.0 + dot(L, vT) * 0.35 + 0.25, 0.0, 1.0);
   vec3 securityInk = mix(uInkGreen, uInkSteel, smoothstep(0.0, 0.65, inkAngle));
