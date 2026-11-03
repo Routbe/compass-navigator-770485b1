@@ -10,6 +10,12 @@ export const Route = createFileRoute("/s/$slug")({
   server: {
     handlers: {
       GET: async ({ request, params, next }) => {
+        // Digital-twin ephemeral token: hand off to the verify page, which
+        // checks on open (never on link preview). Short links never look like this.
+        const { isSecureTokenShape } = await import("@/lib/wallet/scan-channel");
+        if (isSecureTokenShape(params.slug)) {
+          return new Response(null, { status: 302, headers: { location: `/kaart/${params.slug}`, "cache-control": "no-store", "referrer-policy": "no-referrer" } });
+        }
         const { resolveShortLink, redirectResponse, rateLimitedResponse, pausedResponse } =
           await import("@/lib/short-link-redirect.server");
         const { RateLimitError } = await import("@/lib/rate-limit.server");
