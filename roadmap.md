@@ -12,6 +12,7 @@
 - [ ] Implement privacy-safe card payloads and layout validation with rule tests.
 - [ ] Implement age-restricted PBR customization and persisted production parameters.
 - [ ] Implement unpredictable card identifiers and a clearly private MRZ-inspired format.
+- [ ] Apply revised three-by-thirty MRZ layout and factory/client provisioning split; do not claim scanner certification for hash-filled date fields.
 - [ ] Implement single-use secure QR tokens, rotation and freeze checks.
 - [ ] Implement authenticated hardware challenge-response and supported activation flows.
 - [ ] Verify authenticated card flows and report hardware/deployment limitations.
