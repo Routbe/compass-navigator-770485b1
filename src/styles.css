@@ -237,6 +237,21 @@ textarea[data-tour^="cc-"] {
 
 .dark {
   color-scheme: dark;
+  /* Resolve semantic utilities at a nested dark frame, not the light root. */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-border: hsl(var(--border));
+  --color-ring: hsl(var(--ring));
   --tour-scrim: 0 0% 0% / 0.7;
   --background: 30 6% 7%;
   --foreground: 42 31% 94%;
