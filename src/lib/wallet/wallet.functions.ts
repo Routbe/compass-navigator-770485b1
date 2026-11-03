@@ -112,7 +112,7 @@ export const getSecureCardToken = createServerFn({ method: "POST" })
     const { signSecureToken } = await import("./card-token");
     const now = Date.now();
     const { token, payload } = await signSecureToken(await livenessKey(), { handle: own.handle, space: own.space, now });
-    return { frozen: false as const, url: `${walletOrigin()}/kaart/${token}`, iat: payload.iat, exp: payload.exp, serverNow: now };
+    return { frozen: false as const, url: `${walletOrigin()}/s/${token}`, iat: payload.iat, exp: payload.exp, serverNow: now };
   });
 
 /** Public: check a secure QR from the back of a card. Rate limited. */
@@ -244,4 +244,30 @@ export const setMyPhysicalKeyStatus = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { setMyKeyStatus } = await import("./card-freeze.server");
     return { ok: await setMyKeyStatus(data.hardwareId, data.status) };
+  });
+
+/** Owner-only: static public QR for the printed metal card. Never an auth credential. */
+export const getPhysicalCardQr = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({ space: z.enum(["root", "alias"]).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { generateWalletPayload, walletOrigin } = await import("./wallet-payload.server");
+    const own = await generateWalletPayload(context.userId, { space: data.space, allowAccountId: true });
+    if (!own) return null;
+    const { livenessKey } = await import("./card-liveness.server");
+    const { sealPublicCardId } = await import("./card-public-id");
+    const id = await sealPublicCardId(await livenessKey(), context.userId, own.space);
+    return { url: `${walletOrigin()}/v/${id}`, authenticates: false as const };
+  });
+
+/** Public: printed metal-card QR lookup. Identity display only; rate limited. */
+export const lookupPhysicalCardFn = createServerFn({ method: "GET" })
+  .inputValidator((d: unknown) => z.object({ cardId: z.string().trim().min(1).max(200) }).parse(d))
+  .handler(async ({ data }) => {
+    const { getRequest } = await import("@tanstack/react-start/server");
+    const { hitRateLimit, clientIp } = await import("@/lib/rate-limit-db.server");
+    const limit = await hitRateLimit("card-physical-lookup", clientIp(getRequest()), { limit: 60, windowSec: 300 }, { failClosed: true });
+    if (!limit.ok) return { channel: "physical-public" as const, authenticates: false as const, status: "limited" as const };
+    const { lookupPhysicalCard } = await import("./physical-card.server");
+    return lookupPhysicalCard(data.cardId);
   });
