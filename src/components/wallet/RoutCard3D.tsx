@@ -8,9 +8,14 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "rea
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, Text } from "@react-three/drei";
 import * as THREE from "three";
+import { configureTextBuilder } from "troika-three-text";
 import { CARD_RATIO, FACE_H, FACE_W, type CardFaces } from "./card-faces";
 import { clampTilt, stepSpring, type Spring } from "./card-physics";
 import { createSecurityMaterial } from "./card-shader";
+
+// Troika's nested blob importScripts conflicts with our strict script-src.
+// Typeset once on the main thread; keep the same GPU SDF rendering and CSP.
+configureTextBuilder({ useWorker: false, defaultFontURL: "/fonts/Inter-SemiBold.ttf" });
 
 export type CardFinish = "metal" | "glass" | "holo" | "junior";
 export type TiltRef = { current: { x: number; y: number; at: number } };
@@ -34,7 +39,7 @@ const CAMERA_NEAR = 1.15;
 const ZOOM_DAMP = 5;
 const FONT = "/fonts/Inter-SemiBold.ttf";
 const MONO = "/fonts/og-jetbrains-mono.ttf";
-const MICRO = "ROUT · SOVEREIGN PROFILE · ZELFBESCHIKKING OVER JE IDENTITEIT · ".repeat(6);
+const MICRO = "ROUT SOVEREIGN INFRASTRUCTURE // SECURE NODE // NO-TRACKING // ";
 const FINISH_INDEX: Record<CardFinish, number> = { metal: 0, glass: 1, holo: 2, junior: 2 };
 
 /** Canvas pixel → card-local coordinates. */
@@ -107,15 +112,33 @@ function Embossed({ children, y, size, color, weight }: { children: string; y: n
       <Text font={font} fontSize={size} maxWidth={W * 0.86} anchorX="center" anchorY="middle" position={[0.0018, -0.0018, 0]} color="#000000" fillOpacity={0.35}>
         {children}
       </Text>
-      <Text font={font} fontSize={size} maxWidth={W * 0.86} anchorX="center" anchorY="middle" position={[0, 0, 0.0004]}>
+      <Text font={font} fontSize={size} maxWidth={W * 0.86} anchorX="center" anchorY="middle" position={[0, 0, 0.0004]} color={color}>
         {children}
-        <meshStandardMaterial color={color} metalness={0.85} roughness={0.28} />
+        <meshBasicMaterial color={color} toneMapped={false} />
       </Text>
     </group>
   );
 }
 
-function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, text }: CardProps) {
+/** Four joined sides, SDF glyphs generated locally rather than canvas print. */
+function MicroBorder({ color, onSync }: { color: string; onSync: (side: number) => void }) {
+  const sides: { x: number; y: number; angle: number; length: number }[] = [
+    { x: 0, y: H / 2 - 0.044, angle: 0, length: W - 0.11 },
+    { x: W / 2 - 0.044, y: 0, angle: -Math.PI / 2, length: H - 0.11 },
+    { x: 0, y: -H / 2 + 0.044, angle: Math.PI, length: W - 0.11 },
+    { x: -W / 2 + 0.044, y: 0, angle: Math.PI / 2, length: H - 0.11 },
+  ];
+  return <>{sides.map((side, index) => (
+    <Text key={index} font={MONO} fontSize={0.0065} sdfGlyphSize={128} letterSpacing={0}
+      position={[side.x, side.y, 0]} rotation={[0, 0, side.angle]} anchorX="center" anchorY="middle"
+      clipRect={[-side.length / 2, -0.012, side.length / 2, 0.012]} color={color} fillOpacity={0.7}
+      onSync={() => onSync(index)}>
+      {MICRO.repeat(8)}
+    </Text>
+  ))}</>;
+}
+
+function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, text, glyphs }: CardProps & { glyphs: MutableRefObject<Set<string>> }) {
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -130,6 +153,7 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
   );
   useEffect(() => () => ring.dispose(), [ring]);
   const group = useRef<THREE.Group>(null);
+  const watermark = useRef<THREE.Group>(null);
   const timer = useRef<THREE.Mesh>(null);
   const motion = useRef({ idle: 0, flip: 0, z: CAMERA_FAR, yaw: { x: 0, v: 0 } as Spring, pitch: { x: 0, v: 0 } as Spring });
   const camera = useThree((s) => s.camera);
@@ -152,21 +176,26 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
     return { front: make(faces.front, true), back: make(faces.back, true), mask: make(faces.mask, false) };
   }, [faces]);
   const security = useMemo(() => createSecurityMaterial(textures.front, textures.mask, [1 / FACE_W, 1 / FACE_H]), [textures]);
+  const backSecurity = useMemo(() => createSecurityMaterial(textures.back, textures.mask, [1 / FACE_W, 1 / FACE_H], true), [textures]);
+  const materials = useMemo(() => [security, backSecurity], [security, backSecurity]);
   useEffect(() => {
-    const u = security.uniforms;
+    for (const material of materials) {
+    const u = material.uniforms;
     const set = (name: string, value: number) => { const uniform = u[name]; if (uniform) uniform.value = value; };
     set("uFinish", FINISH_INDEX[finish]);
     set("uRough", pbr ? pbr.roughness : -1);
     set("uMetal", pbr ? pbr.metalness : -1);
     set("uClearcoat", pbr ? pbr.clearcoat : 0);
     set("uAniso", pbr ? pbr.anisotropy : 0);
-  }, [security, finish, pbr]);
+    }
+  }, [materials, finish, pbr]);
   useEffect(() => () => {
     textures.front.dispose();
     textures.back.dispose();
     textures.mask.dispose();
   }, [textures]);
   useEffect(() => () => security.dispose(), [security]);
+  useEffect(() => () => backSecurity.dispose(), [backSecurity]);
   useEffect(() => () => body.dispose(), [body]);
   useEffect(() => () => face.dispose(), [face]);
 
@@ -195,7 +224,14 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
     }
     m.z += (CAMERA_FAR + (CAMERA_NEAR - CAMERA_FAR) * zoom.current - m.z) * k(ZOOM_DAMP);
     camera.position.z = m.z;
-    const u = security.uniforms;
+    const wm = watermark.current;
+    if (wm) {
+      wm.position.x = reducedMotion ? 0 : m.yaw.x * 0.16;
+      wm.position.y = H * 0.29 + (reducedMotion ? 0 : m.pitch.x * 0.12);
+      wm.rotation.z = reducedMotion ? -0.12 : -0.12 + m.yaw.x * 0.08;
+    }
+    for (const material of materials) {
+    const u = material.uniforms;
     const motionUniform = u["uMotion"];
     if (motionUniform) motionUniform.value = reducedMotion ? 0 : 1;
     // Real wall-clock time, so a replayed recording drifts out of phase.
@@ -206,6 +242,7 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
     if (seed?.value instanceof THREE.Vector4) seed.value.set(s[0], s[1], s[2], s[3]);
     const light = u["uLightPos"];
     if (light?.value instanceof THREE.Vector3) light.value.set(clampTilt(t.x) * 2.2 + (reducedMotion ? 0 : Math.sin(state.clock.elapsedTime * 0.3) * 0.4), clampTilt(t.y) * 2 + 0.8, 2.4);
+    }
     if (secure) {
       const { iat, exp } = secure.current;
       const fraction = ring.uniforms["uFrac"];
@@ -221,7 +258,6 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
   const qrSize = FACE_W - 176;
   const qy = Math.round(FACE_H * 0.13);
   const slotY = qy + qrSize + 80 + 40;
-  const microY = [cy(30), cy(FACE_H - 30)];
 
   return (
     <group ref={group} onClick={(e) => { e.stopPropagation(); onFlip(); }}>
@@ -229,19 +265,24 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
         <meshPhysicalMaterial color="#26262b" metalness={0.95} roughness={0.32} clearcoat={0.4} />
       </mesh>
       <mesh geometry={face} position={[0, 0, FRONT_Z]} material={security} />
-      <mesh geometry={face} position={[0, 0, BACK_Z]} rotation={[0, Math.PI, 0]}>
-        <meshStandardMaterial map={textures.back} roughness={0.55} metalness={0.1} />
-      </mesh>
+      <mesh geometry={face} position={[0, 0, BACK_Z]} rotation={[0, Math.PI, 0]} material={backSecurity} />
+
+      <group ref={watermark} position={[0, H * 0.29, FRONT_Z + 0.0018]}>
+        <Text font={FONT} fontSize={0.145} sdfGlyphSize={128} letterSpacing={0} anchorX="center" anchorY="middle"
+          onSync={() => glyphs.current.add("watermark")}>
+          ROUT
+          <meshPhysicalMaterial color={text.fg} metalness={0.65} roughness={0.22} iridescence={1}
+            iridescenceIOR={1.45} iridescenceThicknessRange={[220, 480]} transparent opacity={0.18} depthWrite={false} />
+        </Text>
+      </group>
 
       {/* Front: SDF name / handle / tagline and micro-text border. */}
       <Embossed y={cy(FACE_H * 0.7) + 0.012} size={0.075} color={text.fg}>{text.displayName}</Embossed>
       <Embossed y={cy(FACE_H * 0.7 + 48) + 0.01} size={0.042} color={text.fg}>{`@${text.handle}`}</Embossed>
       <Embossed y={cy(FACE_H * 0.7 + 92) + 0.008} size={0.03} color={text.fg}>{text.subheader}</Embossed>
-      {microY.map((y) => (
-        <Text key={y} font={MONO} fontSize={0.0065} position={[0, y, FRONT_Z + 0.0005]} anchorX="center" anchorY="middle" clipRect={[-W * 0.44, -0.01, W * 0.44, 0.01]} color={text.fg} fillOpacity={0.5}>
-          {MICRO}
-        </Text>
-      ))}
+      <group position={[0, 0, FRONT_Z + 0.0008]}>
+        <MicroBorder color={text.fg} onSync={(side) => glyphs.current.add(`front-${side}`)} />
+      </group>
 
       {/* Back: rotating live code + countdown. */}
       <group position={[0, 0, BACK_Z - 0.0006]} rotation={[0, Math.PI, 0]}>
@@ -255,20 +296,17 @@ function Card({ faces, finish, pbr, flipped, tilt, live, zoom, secure, onFlip, t
           <planeGeometry args={[cx(FACE_W - 64) - cx(64), 0.004]} />
           <meshBasicMaterial color="#34d399" toneMapped={false} />
         </mesh>
-        {microY.map((y) => (
-          <Text key={y} font={MONO} fontSize={0.0065} position={[0, y, 0]} anchorX="center" anchorY="middle" clipRect={[-W * 0.44, -0.01, W * 0.44, 0.01]} color="#a1a1aa" fillOpacity={0.6}>
-            {`${MICRO}${text.sovereignId} · `}
-          </Text>
-        ))}
+        <MicroBorder color={text.fg} onSync={(side) => glyphs.current.add(`back-${side}`)} />
       </group>
     </group>
   );
 }
 
-function ReadySignal({ onReady }: { onReady: () => void }) {
+function ReadySignal({ onReady, glyphs }: { onReady: () => void; glyphs: MutableRefObject<Set<string>> }) {
   const frames = useRef(0);
   useFrame(() => {
-    // Two frames: textures uploaded and SDF glyphs placed.
+    // Wait for actual optical SDF synchronization, then one completed render.
+    if (glyphs.current.size < 9) return;
     frames.current += 1;
     if (frames.current === 2) onReady();
   });
@@ -277,6 +315,7 @@ function ReadySignal({ onReady }: { onReady: () => void }) {
 
 export default function RoutCard3D(props: CardProps & { onReady: () => void }) {
   const { onReady, ...card } = props;
+  const glyphs = useRef(new Set<string>());
   return (
     <Canvas
       dpr={[1, 2]}
@@ -290,8 +329,8 @@ export default function RoutCard3D(props: CardProps & { onReady: () => void }) {
         <Lightformer intensity={1.2} color="#9bb7ff" position={[-4, 0, 1]} rotation-y={Math.PI / 2} scale={[8, 2, 1]} />
         <Lightformer intensity={1} color="#ffd1a8" position={[4, -1, 1]} rotation-y={-Math.PI / 2} scale={[8, 2, 1]} />
       </Environment>
-      <Card {...card} />
-      <ReadySignal onReady={onReady} />
+      <Card {...card} glyphs={glyphs} />
+      <ReadySignal onReady={onReady} glyphs={glyphs} />
     </Canvas>
   );
 }

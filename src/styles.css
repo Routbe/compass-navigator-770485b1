@@ -1409,3 +1409,11 @@ select:focus-visible {
 .pulse-font-display { font-family: var(--font-display, inherit); font-weight: 800; letter-spacing: -0.02em; }
 .pulse-font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; }
 .pulse-font-hand { font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-weight: 600; }
+
+/* Optical print inks shared by the browser-only card shader. */
+:root {
+  --card-security-ink-green: #286955;
+  --card-security-ink-steel: #668da4;
+  --card-security-ink-platinum: #c6d4d9;
+  --card-security-chip-metal: #c4ab70;
+}
