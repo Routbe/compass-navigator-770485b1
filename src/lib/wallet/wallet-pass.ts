@@ -30,7 +30,7 @@ type Env = Record<string, string | undefined>;
 const pick = (env: Env, ...keys: string[]) => keys.map((k) => env[k]?.trim()).find((v) => !!v) ?? "";
 
 export type AppleWalletConfig = { passTypeId: string; teamId: string; certPem: string; keyPem: string; passphrase: string; wwdrPem: string };
-export type GoogleWalletConfig = { issuerId: string; serviceAccountEmail: string; privateKey: string };
+export type GoogleWalletConfig = { issuerId: string; serviceAccountEmail: string; privateKey: string; classId?: string };
 
 /** Resolves Apple config; accepts both APPLE_WALLET_* and APPLE_PASS_* names. Null = not (fully) configured. */
 export function appleWalletConfig(env: Env): AppleWalletConfig | null {
@@ -47,8 +47,8 @@ export function appleWalletConfig(env: Env): AppleWalletConfig | null {
 
 /** Resolves Google config from separate vars or the service-account JSON (GOOGLE_WALLET_SERVICE_ACCOUNT). */
 export function googleWalletConfig(env: Env): GoogleWalletConfig | null {
-  let email = pick(env, "GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL");
-  let key = pick(env, "GOOGLE_WALLET_PRIVATE_KEY");
+  let email = pick(env, "GOOGLE_SERVICE_ACCOUNT_EMAIL", "GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL");
+  let key = pick(env, "GOOGLE_PRIVATE_KEY", "GOOGLE_WALLET_PRIVATE_KEY");
   const json = pick(env, "GOOGLE_WALLET_SERVICE_ACCOUNT");
   if (json && (!email || !key)) {
     try {
@@ -60,7 +60,9 @@ export function googleWalletConfig(env: Env): GoogleWalletConfig | null {
     }
   }
   const issuerId = pick(env, "GOOGLE_WALLET_ISSUER_ID");
-  return issuerId && email && key ? { issuerId, serviceAccountEmail: email, privateKey: key } : null;
+  const classId = pick(env, "GOOGLE_WALLET_CLASS_ID");
+  if (classId && (!classId.startsWith(`${issuerId}.`) || !/^[0-9]+\.[a-zA-Z0-9._-]+$/.test(classId))) return null;
+  return issuerId && email && key ? { issuerId, serviceAccountEmail: email, privateKey: key, ...(classId ? { classId } : {}) } : null;
 }
 
 /** Which wallets can issue passes; partial configuration counts as off. */
@@ -213,11 +215,11 @@ export function walletCardPayload(
 }
 
 /** Google Generic object for a ROUT Card. */
-export function googleCardObject(card: WalletCardPayload, issuerId: string) {
+export function googleCardObject(card: WalletCardPayload, issuerId: string, classId = `${issuerId}.rout_card`) {
   const i18n = (value: string) => createLocalizedString({ nl: value, en: value, fr: value, de: value });
   return {
     id: `${issuerId}.${card.serial.replace(/[^a-zA-Z0-9._-]/g, "_")}`,
-    classId: `${issuerId}.rout_card`,
+    classId,
     state: "ACTIVE",
     hexBackgroundColor: card.hexBackgroundColor,
     cardTitle: i18n("ROUT"),
@@ -239,8 +241,8 @@ export function googleCardObject(card: WalletCardPayload, issuerId: string) {
   };
 }
 
-export function googleCardSaveClaims(card: WalletCardPayload, cfg: { issuerId: string; serviceAccountEmail: string; origins: string[] }) {
-  const object = googleCardObject(card, cfg.issuerId);
+export function googleCardSaveClaims(card: WalletCardPayload, cfg: { issuerId: string; serviceAccountEmail: string; origins: string[]; classId?: string }) {
+  const object = googleCardObject(card, cfg.issuerId, cfg.classId);
   return {
     iss: cfg.serviceAccountEmail,
     aud: "google",
