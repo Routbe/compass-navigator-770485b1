@@ -15,6 +15,18 @@ export const Route = createFileRoute("/api_/wallet/$kind/$id")({
         if (!isWalletKind(params.kind) || (type !== "apple" && type !== "google") || !/^[\w.-]{1,100}$/.test(params.id)) {
           return Response.json({ error: "invalid_request" }, { status: 400 });
         }
+        if (type === "google" && params.kind === "profile") {
+          const { currentUser } = await import("@/lib/auth/session.server");
+          const user = await currentUser();
+          const headers = { "cache-control": "no-store" };
+          if (!user) return Response.json({ error: "unauthorized" }, { status: 401, headers });
+          const space = url.searchParams.get("space") === "alias" ? "alias" : "root";
+          const { generateWalletPayload } = await import("@/lib/wallet/wallet-payload.server");
+          const { withDbContext } = await import("@/lib/neon");
+          const own = await withDbContext({ userId: user.id, workspaceId: null }, () => generateWalletPayload(user.id, { space, allowAccountId: true }));
+          const { canClaimWalletCard } = await import("@/lib/wallet/wallet-claim");
+          if (!canClaimWalletCard(own, params.id, space)) return Response.json({ error: "forbidden" }, { status: 403, headers });
+        }
         const { isPlatformFeatureEnabled } = await import("@/lib/platform-features.server");
         if (!(await isPlatformFeatureEnabled("wallet"))) return Response.json({ error: "feature_disabled" }, { status: 403, headers: { "cache-control": "no-store" } });
         const { guardShared } = await import("@/lib/rate-limit-db.server");
@@ -31,7 +43,7 @@ export const Route = createFileRoute("/api_/wallet/$kind/$id")({
               { status: 503, headers: { "cache-control": "no-store" } },
             );
           }
-          if (r.kind === "redirect") return Response.redirect(r.url, 302);
+          if (r.kind === "redirect") return new Response(null, { status: 302, headers: { location: r.url, "cache-control": "no-store" } });
           return new Response(r.bytes as unknown as BodyInit, {
             headers: {
               "content-type": "application/vnd.apple.pkpass",

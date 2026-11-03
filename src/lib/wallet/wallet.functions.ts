@@ -2,6 +2,29 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { optionalAuth, requireAuth } from "@/lib/auth/middleware";
 
+/** Owner-only Google claim. Client account IDs and arbitrary class IDs are never accepted. */
+export const createWalletPass = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({ handle: z.string().trim().min(1).max(100).regex(/^@?[\w.-]+$/), space: z.enum(["root", "alias"]).optional() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { isPlatformFeatureEnabled } = await import("@/lib/platform-features.server");
+    if (!(await isPlatformFeatureEnabled("wallet"))) return { ok: false as const, error: "feature_disabled" };
+    const { generateWalletPayload, walletOrigin } = await import("./wallet-payload.server");
+    const own = await generateWalletPayload(context.userId, { space: data.space, allowAccountId: true });
+    const { canClaimWalletCard } = await import("./wallet-claim");
+    if (!own || !canClaimWalletCard(own, data.handle, data.space)) return { ok: false as const, error: "forbidden" };
+    const { googleWalletConfig } = await import("./wallet-pass");
+    const cfg = googleWalletConfig(process.env as Record<string, string | undefined>);
+    if (!cfg) return { ok: false as const, error: "wallet_not_configured" };
+    try {
+      const { googleCardSave } = await import("./google-wallet.server");
+      return { ok: true as const, ...(await googleCardSave(own, walletOrigin(), cfg)) };
+    } catch {
+      console.error("[wallet] owner claim signing failed");
+      return { ok: false as const, error: "wallet_issue_failed" };
+    }
+  });
+
 /** Public: which wallets can issue passes right now (booleans only, never config values). */
 export const getWalletStatus = createServerFn({ method: "GET" }).handler(async () => {
   const { walletStatus } = await import("./wallet-pass");

@@ -11,6 +11,9 @@ export const Route = createFileRoute("/api_/wallet/google")({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        const { currentUser } = await import("@/lib/auth/session.server");
+        const user = await currentUser();
+        if (!user) return Response.json({ error: "unauthorized" }, { status: 401, headers: { "cache-control": "no-store" } });
         const url = new URL(request.url);
         const username = url.searchParams.get("username")?.trim().replace(/^@+/, "") ?? "";
         if (url.searchParams.has("user_id")) {
@@ -29,6 +32,10 @@ export const Route = createFileRoute("/api_/wallet/google")({
         const headers = { "cache-control": "no-store" };
         try {
           const { generateWalletPayload, walletOrigin } = await import("@/lib/wallet/wallet-payload.server");
+          const { withDbContext } = await import("@/lib/neon");
+          const own = await withDbContext({ userId: user.id, workspaceId: null }, () => generateWalletPayload(user.id, { space, allowAccountId: true }));
+          const { canClaimWalletCard } = await import("@/lib/wallet/wallet-claim");
+          if (!canClaimWalletCard(own, target, space)) return Response.json({ error: "forbidden" }, { status: 403, headers });
           const card = await generateWalletPayload(target, { space });
           if (!card) return Response.json({ error: "not_found" }, { status: 404, headers });
           const { googleWalletConfig, googleCardSaveClaims } = await import("@/lib/wallet/wallet-pass");
