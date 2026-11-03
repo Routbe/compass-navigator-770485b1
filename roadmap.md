@@ -7,7 +7,8 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
-- [ ] Complete requested deep audit of security, integration and uploaded WebGL requirements; automated deep scan is pending.
+- [x] Complete manual audit of security, integration and uploaded WebGL requirements; record evidence and release blockers in audit.md.
+- [ ] Incorporate automated deep security scan findings — blocked by running scanner; notification will report completion.
 - [x] Implement uploaded four-language pairing, NFC recovery states and localized Google Wallet payloads; validate strict 3×30 MRZ before rendering.
 - [x] Review Google-supported NFC, sharing and callback controls; keep public profile passes free of private NFC secrets, first-saver ownership restrictions and false certification claims.
 - [ ] Activate Google REST updates and signed save/delete callbacks — blocked by Google issuer credentials, reviewed persisted-object provisioning and a vetted ECv2SigningOnly callback verifier with durable replay storage.
