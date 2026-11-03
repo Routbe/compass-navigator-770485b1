@@ -2,6 +2,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ enqueue: vi.fn(), list: vi.fn(), ticket: vi.fn() }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => ({
+  "omni.url": "Content-URL", "omni.import": "Link importeren",
+  "omni.processing": "Import wordt verwerkt", "omni.add": "Kaart toevoegen",
+  "omni.refresh": "Inbox vernieuwen",
+}[key] ?? key) }) }));
 vi.mock("@/lib/omni-ingest.functions", () => ({
   enqueueOmniUrl: mocks.enqueue, listOmniIngestJobs: mocks.list, getOmniRealtimeTicket: mocks.ticket,
   getIngestTokenStatus: async () => ({ active: false }), rotateIngestToken: vi.fn(), revokeIngestToken: vi.fn(), dismissOmniJob: vi.fn(), retryOmniJob: vi.fn(),

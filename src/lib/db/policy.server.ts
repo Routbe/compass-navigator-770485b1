@@ -27,7 +27,7 @@ type Access = {
 };
 
 const TABLES: Record<string, Access> = {
-  profiles: { ops: ["select", "update"], owner: "id", publicRead: true },
+  profiles: { ops: ["select", "update"], owner: "id" },
   public_profiles: { ops: ["select"], owner: null, publicRead: true },
   showcase_profiles: { ops: ["select"], owner: null, publicRead: true },
   reserved_handles: { ops: ["select"], owner: null, publicRead: true },
@@ -144,9 +144,6 @@ export async function authorizeQuery(
   }
 
   if (!userId) {
-    if (descriptor.action === "select" && access.publicRead && descriptor.table === "profiles") {
-      return { ok: true, descriptor };
-    }
     return { ok: false, message: "Sign in required" };
   }
 
@@ -166,13 +163,9 @@ export async function authorizeQuery(
     return { ok: true, descriptor };
   }
 
-  const owner = access.owner!;
+  const owner = access.owner;
+  if (!owner) return { ok: false, message: "Owner scope required" };
   if (access.workspaceScoped) return scopeToWorkspace(descriptor, owner, userId);
-  if (descriptor.table === "profiles" && descriptor.action === "select") {
-    // Public profile reads stay open; private columns are not exposed by the
-    // views this app reads, so no extra scoping is applied here.
-    return { ok: true, descriptor };
-  }
 
   const writable = descriptor.action === "select" || descriptor.action === "delete" ? descriptor : stripProtected(descriptor);
   const scoped: QueryDescriptor = {

@@ -91,6 +91,13 @@ describe("merge table allowlist", () => {
     for (const s of writes) expect(s.query).not.toMatch(/identity_verifications|verified_identities|identity_links"/);
   });
 
+  it("blocks unreviewed card and issuer ownership transfers and retains hardware audit history", () => {
+    for (const table of ["card_designs", "card_freezes", "factory_card_inventory", "physical_keys", "wallet_passes", "oidc_subjects"]) {
+      expect(MERGE_TABLES[table]?.strategy).toBe("skip");
+    }
+    expect(MERGE_TABLES.physical_key_events?.strategy).toBe("retain");
+  });
+
   it("checks all blocking tables before the first write", () => {
     const stmts = transferStatements(P, S);
     const firstWrite = stmts.findIndex((s) => !s.query.startsWith("select"));

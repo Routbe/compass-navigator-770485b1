@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { QueryDescriptor, QueryResult, RpcDescriptor } from "./types";
+import { querySchema } from "./query-schema";
 
 /**
  * The single door between the browser and Neon.
@@ -17,7 +18,7 @@ async function currentUserId(): Promise<string | null> {
 }
 
 export const runDbQuery = createServerFn({ method: "POST" })
-  .inputValidator((input: QueryDescriptor) => input)
+  .inputValidator((input: unknown): QueryDescriptor => querySchema.parse(input))
   .handler(async ({ data }): Promise<QueryResult> => {
     const { authorizeQuery } = await import("./policy.server");
     const { executeDescriptor } = await import("./execute.server");
