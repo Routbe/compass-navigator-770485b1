@@ -14,7 +14,7 @@ const Body = z.discriminatedUnion("step", [
 
 const json = (b: unknown, status = 200) => Response.json(b, { status, headers: { "cache-control": "no-store" } });
 
-export const Route = createFileRoute("/api/hardware/verify")({
+export const Route = createFileRoute("/api_/hardware/verify")({
   server: {
     handlers: {
       POST: async ({ request }) => {

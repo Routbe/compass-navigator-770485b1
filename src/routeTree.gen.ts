@@ -192,6 +192,7 @@ import { Route as SubscribeConfirmRouteImport } from './routes/subscribe.confirm
 import { Route as SubscribeLeaveRouteImport } from './routes/subscribe.leave'
 import { Route as SupportIndexRouteImport } from './routes/support.index'
 import { Route as UUsernameRouteImport } from './routes/u.$username'
+import { Route as VCardIdRouteImport } from './routes/v.$cardId'
 import { Route as WSlugRouteImport } from './routes/w.$slug'
 import { Route as WorkspaceTransferTokenRouteImport } from './routes/workspace-transfer.$token'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
@@ -239,6 +240,7 @@ import { Route as ApiAiRewriteRouteImport } from './routes/api_.ai.rewrite'
 import { Route as ApiAuthSplatRouteImport } from './routes/api_.auth.$'
 import { Route as ApiBadgeVerifyRouteImport } from './routes/api_.badge.verify'
 import { Route as ApiBunqCheckStatusRouteImport } from './routes/api_.bunq.check-status'
+import { Route as ApiHardwareVerifyRouteImport } from './routes/api_.hardware.verify'
 import { Route as ApiIngestGridRouteImport } from './routes/api_.ingest.grid'
 import { Route as ApiIngestOmniRouteImport } from './routes/api_.ingest.omni'
 import { Route as ApiPresenceNowPlayingRouteImport } from './routes/api_.presence.now-playing'
@@ -1309,6 +1311,11 @@ const UUsernameRoute = UUsernameRouteImport.update({
   path: '/u/$username',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VCardIdRoute = VCardIdRouteImport.update({
+  id: '/v/$cardId',
+  path: '/v/$cardId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WSlugRoute = WSlugRouteImport.update({
   id: '/w/$slug',
   path: '/w/$slug',
@@ -1572,6 +1579,11 @@ const ApiBadgeVerifyRoute = ApiBadgeVerifyRouteImport.update({
 const ApiBunqCheckStatusRoute = ApiBunqCheckStatusRouteImport.update({
   id: '/api_/bunq/check-status',
   path: '/api/bunq/check-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHardwareVerifyRoute = ApiHardwareVerifyRouteImport.update({
+  id: '/api_/hardware/verify',
+  path: '/api/hardware/verify',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiIngestGridRoute = ApiIngestGridRouteImport.update({
@@ -2566,6 +2578,7 @@ export interface FileRoutesByFullPath {
   '/subscribe/confirm': typeof SubscribeConfirmRoute
   '/subscribe/leave': typeof SubscribeLeaveRoute
   '/u/$username': typeof UUsernameRoute
+  '/v/$cardId': typeof VCardIdRoute
   '/w/$slug': typeof WSlugRoute
   '/workspace-transfer/$token': typeof WorkspaceTransferTokenRoute
   '/about/': typeof AboutIndexRoute
@@ -2622,6 +2635,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/badge/verify': typeof ApiBadgeVerifyRoute
   '/api/bunq/check-status': typeof ApiBunqCheckStatusRoute
+  '/api/hardware/verify': typeof ApiHardwareVerifyRoute
   '/api/ingest/grid': typeof ApiIngestGridRoute
   '/api/ingest/omni': typeof ApiIngestOmniRoute
   '/api/presence/now-playing': typeof ApiPresenceNowPlayingRoute
@@ -2931,6 +2945,7 @@ export interface FileRoutesByTo {
   '/subscribe/confirm': typeof SubscribeConfirmRoute
   '/subscribe/leave': typeof SubscribeLeaveRoute
   '/u/$username': typeof UUsernameRoute
+  '/v/$cardId': typeof VCardIdRoute
   '/w/$slug': typeof WSlugRoute
   '/workspace-transfer/$token': typeof WorkspaceTransferTokenRoute
   '/about': typeof AboutIndexRoute
@@ -2986,6 +3001,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/badge/verify': typeof ApiBadgeVerifyRoute
   '/api/bunq/check-status': typeof ApiBunqCheckStatusRoute
+  '/api/hardware/verify': typeof ApiHardwareVerifyRoute
   '/api/ingest/grid': typeof ApiIngestGridRoute
   '/api/ingest/omni': typeof ApiIngestOmniRoute
   '/api/presence/now-playing': typeof ApiPresenceNowPlayingRoute
@@ -3311,6 +3327,7 @@ export interface FileRoutesById {
   '/subscribe/confirm': typeof SubscribeConfirmRoute
   '/subscribe/leave': typeof SubscribeLeaveRoute
   '/u/$username': typeof UUsernameRoute
+  '/v/$cardId': typeof VCardIdRoute
   '/w/$slug': typeof WSlugRoute
   '/workspace-transfer/$token': typeof WorkspaceTransferTokenRoute
   '/about/': typeof AboutIndexRoute
@@ -3367,6 +3384,7 @@ export interface FileRoutesById {
   '/api_/auth/$': typeof ApiAuthSplatRoute
   '/api_/badge/verify': typeof ApiBadgeVerifyRoute
   '/api_/bunq/check-status': typeof ApiBunqCheckStatusRoute
+  '/api_/hardware/verify': typeof ApiHardwareVerifyRoute
   '/api_/ingest/grid': typeof ApiIngestGridRoute
   '/api_/ingest/omni': typeof ApiIngestOmniRoute
   '/api_/presence/now-playing': typeof ApiPresenceNowPlayingRoute
@@ -3693,6 +3711,7 @@ export interface FileRouteTypes {
     | '/subscribe/confirm'
     | '/subscribe/leave'
     | '/u/$username'
+    | '/v/$cardId'
     | '/w/$slug'
     | '/workspace-transfer/$token'
     | '/about/'
@@ -3749,6 +3768,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/badge/verify'
     | '/api/bunq/check-status'
+    | '/api/hardware/verify'
     | '/api/ingest/grid'
     | '/api/ingest/omni'
     | '/api/presence/now-playing'
@@ -4058,6 +4078,7 @@ export interface FileRouteTypes {
     | '/subscribe/confirm'
     | '/subscribe/leave'
     | '/u/$username'
+    | '/v/$cardId'
     | '/w/$slug'
     | '/workspace-transfer/$token'
     | '/about'
@@ -4113,6 +4134,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/badge/verify'
     | '/api/bunq/check-status'
+    | '/api/hardware/verify'
     | '/api/ingest/grid'
     | '/api/ingest/omni'
     | '/api/presence/now-playing'
@@ -4437,6 +4459,7 @@ export interface FileRouteTypes {
     | '/subscribe/confirm'
     | '/subscribe/leave'
     | '/u/$username'
+    | '/v/$cardId'
     | '/w/$slug'
     | '/workspace-transfer/$token'
     | '/about/'
@@ -4493,6 +4516,7 @@ export interface FileRouteTypes {
     | '/api_/auth/$'
     | '/api_/badge/verify'
     | '/api_/bunq/check-status'
+    | '/api_/hardware/verify'
     | '/api_/ingest/grid'
     | '/api_/ingest/omni'
     | '/api_/presence/now-playing'
@@ -4747,6 +4771,7 @@ export interface RootRouteChildren {
   SubscribeConfirmRoute: typeof SubscribeConfirmRoute
   SubscribeLeaveRoute: typeof SubscribeLeaveRoute
   UUsernameRoute: typeof UUsernameRoute
+  VCardIdRoute: typeof VCardIdRoute
   WSlugRoute: typeof WSlugRoute
   WorkspaceTransferTokenRoute: typeof WorkspaceTransferTokenRoute
   ApiAdminMailCheckRoute: typeof ApiAdminMailCheckRoute
@@ -4757,6 +4782,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBadgeVerifyRoute: typeof ApiBadgeVerifyRoute
   ApiBunqCheckStatusRoute: typeof ApiBunqCheckStatusRoute
+  ApiHardwareVerifyRoute: typeof ApiHardwareVerifyRoute
   ApiIngestGridRoute: typeof ApiIngestGridRoute
   ApiIngestOmniRoute: typeof ApiIngestOmniRoute
   ApiPresenceNowPlayingRoute: typeof ApiPresenceNowPlayingRoute
@@ -6136,6 +6162,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UUsernameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/v/$cardId': {
+      id: '/v/$cardId'
+      path: '/v/$cardId'
+      fullPath: '/v/$cardId'
+      preLoaderRoute: typeof VCardIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/w/$slug': {
       id: '/w/$slug'
       path: '/w/$slug'
@@ -6463,6 +6496,13 @@ declare module '@tanstack/react-router' {
       path: '/api/bunq/check-status'
       fullPath: '/api/bunq/check-status'
       preLoaderRoute: typeof ApiBunqCheckStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api_/hardware/verify': {
+      id: '/api_/hardware/verify'
+      path: '/api/hardware/verify'
+      fullPath: '/api/hardware/verify'
+      preLoaderRoute: typeof ApiHardwareVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api_/ingest/grid': {
@@ -8186,6 +8226,7 @@ const rootRouteChildren: RootRouteChildren = {
   SubscribeConfirmRoute: SubscribeConfirmRoute,
   SubscribeLeaveRoute: SubscribeLeaveRoute,
   UUsernameRoute: UUsernameRoute,
+  VCardIdRoute: VCardIdRoute,
   WSlugRoute: WSlugRoute,
   WorkspaceTransferTokenRoute: WorkspaceTransferTokenRoute,
   ApiAdminMailCheckRoute: ApiAdminMailCheckRoute,
@@ -8196,6 +8237,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBadgeVerifyRoute: ApiBadgeVerifyRoute,
   ApiBunqCheckStatusRoute: ApiBunqCheckStatusRoute,
+  ApiHardwareVerifyRoute: ApiHardwareVerifyRoute,
   ApiIngestGridRoute: ApiIngestGridRoute,
   ApiIngestOmniRoute: ApiIngestOmniRoute,
   ApiPresenceNowPlayingRoute: ApiPresenceNowPlayingRoute,
