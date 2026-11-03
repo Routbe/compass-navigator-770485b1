@@ -112,9 +112,9 @@ function Embossed({ children, y, size, color, weight }: { children: string; y: n
       <Text font={font} fontSize={size} maxWidth={W * 0.86} anchorX="center" anchorY="middle" position={[0.0018, -0.0018, 0]} color="#000000" fillOpacity={0.35}>
         {children}
       </Text>
-      <Text font={font} fontSize={size} maxWidth={W * 0.86} anchorX="center" anchorY="middle" position={[0, 0, 0.0004]}>
+      <Text font={font} fontSize={size} maxWidth={W * 0.86} anchorX="center" anchorY="middle" position={[0, 0, 0.0004]} color={color}>
         {children}
-        <meshStandardMaterial color={color} metalness={0.85} roughness={0.28} />
+        <meshBasicMaterial color={color} toneMapped={false} />
       </Text>
     </group>
   );

@@ -7,7 +7,8 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
-- [ ] Add forensic guilloche on both faces, four-sided SDF microtext, tilt-driven ROUT foil, chip/antenna contours and verify the WebGL rendering without claiming physical security or hardware frame rates.
+- [x] Add forensic guilloche on both faces, four-sided SDF microtext, tilt-driven ROUT foil and chip/antenna contours; optical fixture renders front/back/zoom without console errors, and 36 focused tests pass. No account or hardware acceptance is inferred.
+- [ ] Verify forensic layers on an actual signed-in card and measure 60 fps / phone gyroscope / maximum-zoom legibility — blocked by a configured ROUT session and real target-device GPU/sensors; open the existing card, use Loep and phone tilt to check.
 - [x] Implement fail-closed card status, atomic QR replay protection, source migration 0201, WebGL lifetime/motion fixes, dedicated signing secrets and independent jose RS256 verification.
 - [x] Run complete tests: 338 files, 1883 tests passed; offline PostgreSQL verifies replay, expiry, audit permissions and hardware status. Live acceptance is not inferred from tests.
 - [x] Add latest Google configuration aliases, issuer-scoped class validation and owner-only claim; both legacy Google profile paths also enforce ownership. 22 focused tests pass.
