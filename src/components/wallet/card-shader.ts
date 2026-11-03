@@ -1,5 +1,5 @@
 /**
- * ROUT Card security shader (front face). Branch-free GLSL:
+ * ROUT Card security shader (both faces). Bounded analytic GLSL:
  * - thin-film interference foil (gold -> emerald -> deep blue) on the mask's R channel
  * - procedural guilloche rosette + wave lines, anti-aliased with fwidth
  * - latent kinegram watermark (mask G) visible only near a 45 degree view
@@ -44,6 +44,11 @@ uniform float uMetal;     // < 0 = finish default, else PBR metalness
 uniform float uClearcoat; // 0..1 lacquer lobe (ceramic)
 uniform float uAniso;     // 0..1 brushed highlight along the card's long axis
 uniform float uMotion;    // 0 disables temporal effects for reduced motion
+uniform float uBack;
+uniform vec3 uInkGreen;
+uniform vec3 uInkSteel;
+uniform vec3 uInkPlatinum;
+uniform vec3 uChipMetal;
 varying vec2 vUv;
 varying vec3 vWorldPos;
 varying vec3 vN;
@@ -67,14 +72,34 @@ vec3 thinFilm(float cosI, float d) {
 }
 
 float aaLine(float v, float width) {
-  float f = abs(fract(v) - 0.5);
-  float w = fwidth(v);
-  return 1.0 - smoothstep(width, width + w * 1.5, 0.5 - f);
+  float distanceToLine = abs(fract(v + 0.5) - 0.5);
+  float footprint = max(fwidth(v), 0.0001);
+  // Fade unresolved frequencies instead of generating moire at a distance.
+  return (1.0 - smoothstep(width, width + footprint, distanceToLine))
+    * (1.0 - smoothstep(0.35, 1.0, footprint));
+}
+
+float boxMask(vec2 uv, vec2 lo, vec2 hi) {
+  vec2 aa = max(fwidth(uv), vec2(0.0001));
+  vec2 inside = smoothstep(lo - aa, lo + aa, uv) * (1.0 - smoothstep(hi - aa, hi + aa, uv));
+  return inside.x * inside.y;
+}
+
+float contour(float distanceToEdge, float width) {
+  float aa = max(fwidth(distanceToEdge), 0.0001);
+  return 1.0 - smoothstep(width, width + aa, abs(distanceToEdge));
 }
 
 void main() {
   vec4 base = texture2D(uMap, vUv);
-  vec3 mask = texture2D(uMask, vUv).rgb;
+  vec3 mask = texture2D(uMask, vUv).rgb * (1.0 - uBack);
+  // Never print optical layers over QR quiet zones, portraits, names or MRZ.
+  float frontReserved = max(boxMask(vUv, vec2(0.047, 0.033), vec2(0.242, 0.158)),
+    max(boxMask(vUv, vec2(0.07, 0.18), vec2(0.93, 0.34)),
+    1.0 - smoothstep(0.235, 0.25, length((vUv - vec2(0.5, 0.58)) * vec2(1.0, 1.588)))));
+  float backReserved = max(boxMask(vUv, vec2(0.108, 0.392), vec2(0.892, 0.889)),
+    max(1.0 - smoothstep(0.148, 0.16, vUv.y), boxMask(vUv, vec2(0.065, 0.22), vec2(0.935, 0.37))));
+  float printable = 1.0 - mix(frontReserved, backReserved, uBack);
 
   // Emboss: height gradient from the mask's blue channel bends the normal.
   float hL = texture2D(uMask, vUv - vec2(uTexel.x, 0.0)).b;
@@ -93,10 +118,11 @@ void main() {
   vec2 p = (vUv - 0.5) * vec2(1.0, 1.588);
   float r = length(p);
   float a = atan(p.y, p.x);
-  float rose = aaLine(r * 46.0 + 0.55 * sin(a * 12.0) + 0.25 * sin(a * 5.0 + r * 30.0), 0.035);
-  float rose2 = aaLine(r * 46.0 - 0.55 * sin(a * 12.0 + 1.3), 0.035);
-  float waves = aaLine(p.y * 70.0 + 0.9 * sin(p.x * 24.0 + p.y * 6.0), 0.03);
-  float guilloche = max(max(rose, rose2) * (1.0 - smoothstep(0.15, 0.62, r)), waves * 0.55);
+  float rose = aaLine(r * 96.0 + 0.85 * sin(a * 12.0) + 0.35 * sin(a * 7.0 + r * 38.0), 0.022);
+  float rose2 = aaLine(r * 91.0 - 0.85 * sin(a * 12.0 + 1.3), 0.022);
+  float waves = aaLine(p.y * 112.0 + 1.6 * sin(p.x * 26.0 + p.y * 8.0), 0.02);
+  float crossWaves = aaLine(p.x * 103.0 + 1.1 * sin(p.y * 19.0 - p.x * 5.0), 0.02);
+  float guilloche = max(max(rose, rose2) * (1.0 - smoothstep(0.15, 0.72, r)), max(waves, crossWaves) * 0.65) * printable;
 
   // Finish weights without branches.
   float isGlass = step(0.5, uFinish) * step(uFinish, 1.5);
@@ -138,6 +164,23 @@ void main() {
   col += pow(NdotH, 900.0) * 6.0 * uClearcoat * (0.04 + 0.96 * pow(1.0 - cosV, 5.0)) + pow(NdotH, 900.0) * 1.2 * uClearcoat;
   col += env * fres * mix(0.35, 0.6, isGlass);
   col = mix(col, film * (0.55 + env * 0.5 + spec * 0.8), foil * (0.55 + 0.4 * (1.0 - cosV)));
+  float inkAngle = clamp((1.0 - cosV) * 2.0 + dot(L, vT) * 0.35 + 0.25, 0.0, 1.0);
+  vec3 securityInk = mix(uInkGreen, uInkSteel, smoothstep(0.0, 0.65, inkAngle));
+  securityInk = mix(securityInk, uInkPlatinum, smoothstep(0.6, 1.0, inkAngle));
+  col = mix(col, securityInk * (0.7 + 0.3 * diff), guilloche * 0.48);
+
+  // Printed dual-interface module: rounded perimeter, segmented contacts, NFC arc.
+  vec2 chip = (vUv - vec2(0.78, 0.19)) * vec2(1.0, 1.588);
+  vec2 q = abs(chip) - vec2(0.063, 0.047);
+  float chipSdf = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.012;
+  float chipInside = 1.0 - smoothstep(-0.001, 0.001, chipSdf);
+  float contacts = max(contour(chip.x, 0.0015), max(contour(abs(chip.y) - 0.022, 0.0015), contour(abs(chip.x) - 0.032, 0.0015))) * chipInside;
+  float chipLines = max(contour(chipSdf, 0.0015), contacts);
+  vec2 antenna = (vUv - vec2(0.5, 0.49)) * vec2(1.0, 1.588);
+  float arc = max(contour(length(antenna) - 0.42, 0.001), contour(length(antenna) - 0.435, 0.001));
+  arc *= smoothstep(-0.02, 0.02, antenna.x) * printable;
+  float hardware = max(chipLines, arc * 0.6) * mix(0.16, 0.8, uBack);
+  col = mix(col, uChipMetal * (0.65 + diff * 0.35) + film * fres * 0.15, hardware);
 
   // Latent image: Gaussian window around 45 deg, effectively zero at 0 deg.
   float latent = exp(-pow((cosV - uLatentCos) / uLatentWidth, 2.0)) * mask.g;
@@ -148,7 +191,9 @@ void main() {
   float n = hash12(gl_FragCoord.xy + uSeed.xy * 4096.0 + tick * vec2(1.618, 2.718));
   float strobe = step(0.5, fract((vUv.x + vUv.y) * 180.0 + uTime * (3.0 + uSeed.z * 4.0)));
   // Visual texture, not protection against screenshots or recording.
-  col += ((n - 0.5) * 0.022 + (strobe - 0.5) * 0.006) * uMotion;
+  col += ((n - 0.5) * 0.012 + (strobe - 0.5) * 0.003) * uMotion * printable;
+  // Preserve exact printed QR, portrait, identity and MRZ pixels on both sides.
+  col = mix(base.rgb, col, printable);
 
   gl_FragColor = vec4(max(col, 0.0), 1.0);
   #include <tonemapping_fragment>
@@ -156,7 +201,7 @@ void main() {
 }
 `;
 
-export function createSecurityMaterial(map: THREE.Texture, mask: THREE.Texture, texel: [number, number]): THREE.ShaderMaterial {
+export function createSecurityMaterial(map: THREE.Texture, mask: THREE.Texture, texel: [number, number], back = false): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     vertexShader: vertex,
     fragmentShader: fragment,
@@ -176,6 +221,11 @@ export function createSecurityMaterial(map: THREE.Texture, mask: THREE.Texture, 
       uClearcoat: { value: 0 },
       uAniso: { value: 0 },
       uMotion: { value: 1 },
+      uBack: { value: back ? 1 : 0 },
+      uInkGreen: { value: new THREE.Color("#286955") },
+      uInkSteel: { value: new THREE.Color("#668da4") },
+      uInkPlatinum: { value: new THREE.Color("#c6d4d9") },
+      uChipMetal: { value: new THREE.Color("#c4ab70") },
     },
   });
 }
