@@ -7,6 +7,8 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
+- [ ] Implement uploaded four-language pairing, NFC recovery states and localized Google Wallet payloads.
+- [ ] Review Google-supported NFC, sharing and callback controls; implement only verified security behavior.
 - [x] Read uploaded requirements and verify the existing Neon connection.
 - [x] Review existing card, Studio, account and Neon structures before integration.
 - [x] Confirm existing privacy validation, CMF material rules and cryptographic primitives; run 35 focused tests.
