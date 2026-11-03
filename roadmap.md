@@ -7,6 +7,8 @@
 - [ ] Verify standalone media processing — blocked by separate worker deployment.
 
 # ROUT/PASS card directives
+- [ ] Remediate uploaded directives: fail-closed card status, atomic QR replay protection, compatible reviewed Neon schema, WebGL lifetime/motion fixes, independent signing keys and native Wallet signing verification.
+- [ ] Run complete tests and report actual results; live Wallet acceptance and hardware verification require issuer credentials and hardware.
 - [x] Add latest Google configuration aliases, issuer-scoped class validation and owner-only claim; both legacy Google profile paths also enforce ownership. 22 focused tests pass.
 - [ ] Complete official Google-library signing and live claim verification — blocked by unsupported Node-only library on current hosting, signing-service decision, issuer credentials and configured ROUT session.
 - [x] Complete manual audit of security, integration and uploaded WebGL requirements; record evidence and release blockers in audit.md.
