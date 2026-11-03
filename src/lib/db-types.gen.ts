@@ -350,6 +350,12 @@ export interface PublicApprovedHandlesRow {
   "claimed_at": string | Date | null;
 }
 
+export interface PublicAuditLogsRow {
+  "id": string;
+  "event": string;
+  "occurred_at": string | Date;
+}
+
 export interface PublicAuthTokensRow {
   "id": string;
   "user_id": string;
@@ -557,6 +563,24 @@ export interface PublicCalendarEventsRow {
   "is_blocking": boolean;
 }
 
+export interface PublicCardDesignsRow {
+  "serial": string;
+  "user_id": string;
+  "cmf": JsonValue;
+  "updated_at": string | Date;
+}
+
+export interface PublicCardFreezesRow {
+  "serial": string;
+  "user_id": string;
+  "frozen_at": string | Date;
+}
+
+export interface PublicCardTokenUsesRow {
+  "nonce": string;
+  "expires_at": string | Date;
+}
+
 export interface PublicCommunityReviewsRow {
   "id": string;
   "user_id": string | null;
@@ -713,6 +737,18 @@ export interface PublicEphemeralStatusesRow {
   "expires_at": string | Date;
 }
 
+export interface PublicFactoryCardInventoryRow {
+  "hardware_id": string;
+  "public_key": string;
+  "key_alg": string;
+  "activation_hash": string;
+  "nfc_uid": string | null;
+  "status": string;
+  "user_id": string | null;
+  "issued_at": string | Date;
+  "paired_at": string | Date | null;
+}
+
 export interface PublicFediverseEmailOtpRow {
   "pending_key": string;
   "email": string;
@@ -801,6 +837,12 @@ export interface PublicGuestbookEntriesRow {
   "body": string;
   "pinned": boolean;
   "created_at": string | Date;
+}
+
+export interface PublicHardwareChallengesRow {
+  "nonce_hash": string;
+  "hardware_id": string;
+  "expires_at": string | Date;
 }
 
 export interface PublicIdentityDisclosureLogsRow {
@@ -1170,6 +1212,16 @@ export interface PublicOauthStepUpCodesRow {
   "method": string;
 }
 
+export interface PublicOidcSubjectsRow {
+  "id": string;
+  "user_id": string;
+  "sector": string;
+  "version": number;
+  "subject": string;
+  "created_at": string | Date;
+  "revoked_at": string | Date | null;
+}
+
 export interface PublicOmniIngestTokensRow {
   "user_id": string;
   "token_hash": string;
@@ -1242,6 +1294,28 @@ export interface PublicPhoneOtpCodesRow {
   "expires_at": string | Date;
   "consumed_at": string | Date | null;
   "created_at": string | Date;
+}
+
+export interface PublicPhysicalKeyEventsRow {
+  "id": string;
+  "hardware_id": string;
+  "user_id": string | null;
+  "event": string;
+  "at": string | Date;
+}
+
+export interface PublicPhysicalKeysRow {
+  "hardware_id": string;
+  "user_id": string;
+  "card_serial": string | null;
+  "label": string | null;
+  "nfc_uid": string | null;
+  "rfid_legacy_uid": string | null;
+  "public_key": string | null;
+  "key_alg": string | null;
+  "status": string;
+  "issued_at": string | Date;
+  "last_scanned_at": string | Date | null;
 }
 
 export interface PublicPlatformFeatureSwitchesRow {
@@ -1851,6 +1925,11 @@ export interface PublicUploadRateLimitsRow {
   "updated_at": string | Date;
 }
 
+export interface PublicUsedNoncesRow {
+  "nonce": string;
+  "expires_at": string | Date;
+}
+
 export interface PublicUserAssetsRow {
   "id": string;
   "user_id": string;
@@ -2151,6 +2230,14 @@ export interface PublicVerifiedIdentitiesRow {
   "legal_name": string | null;
 }
 
+export interface PublicWalletPassesRow {
+  "object_id": string;
+  "user_id": string;
+  "card_serial": string;
+  "sync_status": string;
+  "updated_at": string | Date;
+}
+
 export interface PublicWalletTransactionsRow {
   "id": string;
   "user_id": string;
@@ -2348,6 +2435,7 @@ export interface DbTables {
   "public.app_email_assignments": PublicAppEmailAssignmentsRow;
   "public.app_issued_credentials": PublicAppIssuedCredentialsRow;
   "public.approved_handles": PublicApprovedHandlesRow;
+  "public.audit_logs": PublicAuditLogsRow;
   "public.auth_tokens": PublicAuthTokensRow;
   "public.availability_cache": PublicAvailabilityCacheRow;
   "public.availability_jobs": PublicAvailabilityJobsRow;
@@ -2365,6 +2453,9 @@ export interface DbTables {
   "public.bunq_oauth_tokens": PublicBunqOauthTokensRow;
   "public.business_verifications": PublicBusinessVerificationsRow;
   "public.calendar_events": PublicCalendarEventsRow;
+  "public.card_designs": PublicCardDesignsRow;
+  "public.card_freezes": PublicCardFreezesRow;
+  "public.card_token_uses": PublicCardTokenUsesRow;
   "public.community_reviews": PublicCommunityReviewsRow;
   "public.connected_calendars": PublicConnectedCalendarsRow;
   "public.contact_submissions": PublicContactSubmissionsRow;
@@ -2378,6 +2469,7 @@ export interface DbTables {
   "public.email_aliases": PublicEmailAliasesRow;
   "public.entitlement_overrides": PublicEntitlementOverridesRow;
   "public.ephemeral_statuses": PublicEphemeralStatusesRow;
+  "public.factory_card_inventory": PublicFactoryCardInventoryRow;
   "public.fediverse_email_otp": PublicFediverseEmailOtpRow;
   "public.feedback_forms": PublicFeedbackFormsRow;
   "public.feedback_responses": PublicFeedbackResponsesRow;
@@ -2385,6 +2477,7 @@ export interface DbTables {
   "public.gallery_objects": PublicGalleryObjectsRow;
   "public.gift_cards": PublicGiftCardsRow;
   "public.guestbook_entries": PublicGuestbookEntriesRow;
+  "public.hardware_challenges": PublicHardwareChallengesRow;
   "public.identity_disclosure_logs": PublicIdentityDisclosureLogsRow;
   "public.identity_labels": PublicIdentityLabelsRow;
   "public.identity_link_events": PublicIdentityLinkEventsRow;
@@ -2415,12 +2508,15 @@ export interface DbTables {
   "public.oauth_signing_keys": PublicOauthSigningKeysRow;
   "public.oauth_step_up_challenges": PublicOauthStepUpChallengesRow;
   "public.oauth_step_up_codes": PublicOauthStepUpCodesRow;
+  "public.oidc_subjects": PublicOidcSubjectsRow;
   "public.omni_ingest_tokens": PublicOmniIngestTokensRow;
   "public.omni_jobs": PublicOmniJobsRow;
   "public.omni_matrix_items": PublicOmniMatrixItemsRow;
   "public.onboarding_drafts": PublicOnboardingDraftsRow;
   "public.parent_authorizations": PublicParentAuthorizationsRow;
   "public.phone_otp_codes": PublicPhoneOtpCodesRow;
+  "public.physical_key_events": PublicPhysicalKeyEventsRow;
+  "public.physical_keys": PublicPhysicalKeysRow;
   "public.platform_feature_switches": PublicPlatformFeatureSwitchesRow;
   "public.platform_integration_switches": PublicPlatformIntegrationSwitchesRow;
   "public.poll_votes": PublicPollVotesRow;
@@ -2469,6 +2565,7 @@ export interface DbTables {
   "public.tip_settings": PublicTipSettingsRow;
   "public.tracked_qrs": PublicTrackedQrsRow;
   "public.upload_rate_limits": PublicUploadRateLimitsRow;
+  "public.used_nonces": PublicUsedNoncesRow;
   "public.user_assets": PublicUserAssetsRow;
   "public.user_badges": PublicUserBadgesRow;
   "public.user_calendar_feeds": PublicUserCalendarFeedsRow;
@@ -2492,6 +2589,7 @@ export interface DbTables {
   "public.users": PublicUsersRow;
   "public.verification_payments": PublicVerificationPaymentsRow;
   "public.verified_identities": PublicVerifiedIdentitiesRow;
+  "public.wallet_passes": PublicWalletPassesRow;
   "public.wallet_transactions": PublicWalletTransactionsRow;
   "public.wallets": PublicWalletsRow;
   "public.webhook_deliveries": PublicWebhookDeliveriesRow;

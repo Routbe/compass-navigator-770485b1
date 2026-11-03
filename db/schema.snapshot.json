@@ -3515,6 +3515,54 @@
     },
     {
       "schema": "public",
+      "name": "audit_logs",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "notNull": true,
+          "default": null,
+          "identity": "a",
+          "generated": null
+        },
+        {
+          "name": "event",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "audit_logs_event_check",
+          "kind": "c",
+          "def": "CHECK ((event = ANY (ARRAY['qr_verified'::text, 'qr_replayed'::text, 'qr_expired'::text, 'hw_verified'::text, 'hw_rejected'::text])))"
+        },
+        {
+          "name": "audit_logs_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (id)"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [],
+      "grants": {}
+    },
+    {
+      "schema": "public",
       "name": "auth_tokens",
       "columns": [
         {
@@ -5812,6 +5860,210 @@
     },
     {
       "schema": "public",
+      "name": "card_designs",
+      "columns": [
+        {
+          "name": "serial",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "cmf",
+          "type": "jsonb",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "card_designs_cmf_check",
+          "kind": "c",
+          "def": "CHECK (((jsonb_typeof(cmf) = 'object'::text) AND (octet_length((cmf)::text) < 8192)))"
+        },
+        {
+          "name": "card_designs_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (serial)"
+        },
+        {
+          "name": "card_designs_serial_check",
+          "kind": "c",
+          "def": "CHECK ((serial ~ '^[\\w.-]{8,128}$'::text))"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [
+        {
+          "name": "card_designs_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "ALL",
+          "using": "(user_id = rout_current_user_id())",
+          "check": "(user_id = rout_current_user_id())"
+        }
+      ],
+      "grants": {
+        "rout_app": [
+          "DELETE",
+          "INSERT",
+          "SELECT",
+          "UPDATE"
+        ]
+      }
+    },
+    {
+      "schema": "public",
+      "name": "card_freezes",
+      "columns": [
+        {
+          "name": "serial",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "frozen_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "card_freezes_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (serial)"
+        },
+        {
+          "name": "card_freezes_serial_check",
+          "kind": "c",
+          "def": "CHECK ((serial ~ '^[\\w.-]{8,128}$'::text))"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [
+        {
+          "name": "card_freezes_delete_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "DELETE",
+          "using": "(user_id = rout_current_user_id())",
+          "check": null
+        },
+        {
+          "name": "card_freezes_insert_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "INSERT",
+          "using": null,
+          "check": "(user_id = rout_current_user_id())"
+        },
+        {
+          "name": "card_freezes_select_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "SELECT",
+          "using": "(user_id = rout_current_user_id())",
+          "check": null
+        }
+      ],
+      "grants": {
+        "rout_app": [
+          "DELETE",
+          "INSERT",
+          "SELECT"
+        ]
+      }
+    },
+    {
+      "schema": "public",
+      "name": "card_token_uses",
+      "columns": [
+        {
+          "name": "nonce",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "card_token_uses_nonce_check",
+          "kind": "c",
+          "def": "CHECK ((nonce ~ '^[A-Za-z0-9_-]{16,64}$'::text))"
+        },
+        {
+          "name": "card_token_uses_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (nonce)"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [],
+      "grants": {}
+    },
+    {
+      "schema": "public",
       "name": "community_reviews",
       "columns": [
         {
@@ -7460,6 +7712,127 @@
     },
     {
       "schema": "public",
+      "name": "factory_card_inventory",
+      "columns": [
+        {
+          "name": "hardware_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "public_key",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "key_alg",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "activation_hash",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "nfc_uid",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "notNull": true,
+          "default": "'pending'::text",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "paired_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "factory_card_inventory_activation_hash_check",
+          "kind": "c",
+          "def": "CHECK ((activation_hash ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "name": "factory_card_inventory_key_alg_check",
+          "kind": "c",
+          "def": "CHECK ((key_alg = ANY (ARRAY['Ed25519'::text, 'P-256'::text])))"
+        },
+        {
+          "name": "factory_card_inventory_nfc_uid_key",
+          "kind": "u",
+          "def": "UNIQUE (nfc_uid)"
+        },
+        {
+          "name": "factory_card_inventory_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (hardware_id)"
+        },
+        {
+          "name": "factory_card_inventory_public_key_check",
+          "kind": "c",
+          "def": "CHECK ((public_key ~ '^[A-Za-z0-9_-]{40,200}$'::text))"
+        },
+        {
+          "name": "factory_card_inventory_status_check",
+          "kind": "c",
+          "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'revoked'::text])))"
+        },
+        {
+          "name": "factory_card_inventory_user_id_fkey",
+          "kind": "f",
+          "def": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [],
+      "grants": {}
+    },
+    {
+      "schema": "public",
       "name": "fediverse_email_otp",
       "columns": [
         {
@@ -8413,6 +8786,54 @@
           "UPDATE"
         ]
       }
+    },
+    {
+      "schema": "public",
+      "name": "hardware_challenges",
+      "columns": [
+        {
+          "name": "nonce_hash",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "hardware_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "hardware_challenges_nonce_hash_check",
+          "kind": "c",
+          "def": "CHECK ((nonce_hash ~ '^[0-9a-f]{64}$'::text))"
+        },
+        {
+          "name": "hardware_challenges_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (nonce_hash)"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [],
+      "grants": {}
     },
     {
       "schema": "public",
@@ -12223,6 +12644,134 @@
     },
     {
       "schema": "public",
+      "name": "oidc_subjects",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "sector",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "version",
+          "type": "smallint",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "subject",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "oidc_subjects_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (id)"
+        },
+        {
+          "name": "oidc_subjects_sector_check",
+          "kind": "c",
+          "def": "CHECK (((char_length(sector) >= 1) AND (char_length(sector) <= 300)))"
+        },
+        {
+          "name": "oidc_subjects_sector_subject_key",
+          "kind": "u",
+          "def": "UNIQUE (sector, subject)"
+        },
+        {
+          "name": "oidc_subjects_subject_check",
+          "kind": "c",
+          "def": "CHECK ((subject ~ '^[A-Za-z0-9_-]{43}$'::text))"
+        },
+        {
+          "name": "oidc_subjects_user_id_sector_version_key",
+          "kind": "u",
+          "def": "UNIQUE (user_id, sector, version)"
+        },
+        {
+          "name": "oidc_subjects_version_check",
+          "kind": "c",
+          "def": "CHECK (((version >= 1) AND (version <= 999)))"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX oidc_subjects_sector_subject_live ON public.oidc_subjects USING btree (sector, subject) WHERE (revoked_at IS NULL)"
+      ],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [
+        {
+          "name": "oidc_subjects_insert_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "INSERT",
+          "using": null,
+          "check": "(user_id = rout_current_user_id())"
+        },
+        {
+          "name": "oidc_subjects_read_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "SELECT",
+          "using": "(user_id = rout_current_user_id())",
+          "check": null
+        }
+      ],
+      "grants": {
+        "rout_app": [
+          "INSERT",
+          "SELECT"
+        ]
+      }
+    },
+    {
+      "schema": "public",
       "name": "omni_ingest_tokens",
       "columns": [
         {
@@ -13033,6 +13582,271 @@
           "INSERT",
           "SELECT",
           "UPDATE"
+        ]
+      }
+    },
+    {
+      "schema": "public",
+      "name": "physical_key_events",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "notNull": true,
+          "default": null,
+          "identity": "a",
+          "generated": null
+        },
+        {
+          "name": "hardware_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "event",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "physical_key_events_event_check",
+          "kind": "c",
+          "def": "CHECK ((event = ANY (ARRAY['provisioned'::text, 'activated'::text, 'frozen'::text, 'unfrozen'::text, 'revoked'::text, 'verified'::text, 'rejected'::text])))"
+        },
+        {
+          "name": "physical_key_events_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (id)"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [
+        {
+          "name": "physical_key_events_select_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "SELECT",
+          "using": "(user_id = rout_current_user_id())",
+          "check": null
+        }
+      ],
+      "grants": {
+        "rout_app": [
+          "SELECT"
+        ]
+      }
+    },
+    {
+      "schema": "public",
+      "name": "physical_keys",
+      "columns": [
+        {
+          "name": "hardware_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": "gen_random_uuid()",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "card_serial",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "label",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "nfc_uid",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "rfid_legacy_uid",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "public_key",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "key_alg",
+          "type": "text",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "notNull": true,
+          "default": "'pending'::text",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "issued_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "last_scanned_at",
+          "type": "timestamp with time zone",
+          "notNull": false,
+          "default": null,
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "physical_keys_key_alg_check",
+          "kind": "c",
+          "def": "CHECK (((key_alg IS NULL) OR (key_alg = ANY (ARRAY['Ed25519'::text, 'P-256'::text]))))"
+        },
+        {
+          "name": "physical_keys_label_check",
+          "kind": "c",
+          "def": "CHECK (((label IS NULL) OR (char_length(label) <= 40)))"
+        },
+        {
+          "name": "physical_keys_nfc_uid_check",
+          "kind": "c",
+          "def": "CHECK (((nfc_uid IS NULL) OR (nfc_uid ~ '^[0-9A-F:]{8,40}$'::text)))"
+        },
+        {
+          "name": "physical_keys_nfc_uid_key",
+          "kind": "u",
+          "def": "UNIQUE (nfc_uid)"
+        },
+        {
+          "name": "physical_keys_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (hardware_id)"
+        },
+        {
+          "name": "physical_keys_public_key_check",
+          "kind": "c",
+          "def": "CHECK (((public_key IS NULL) OR (public_key ~ '^[A-Za-z0-9_-]{40,200}$'::text)))"
+        },
+        {
+          "name": "physical_keys_rfid_legacy_uid_check",
+          "kind": "c",
+          "def": "CHECK (((rfid_legacy_uid IS NULL) OR (rfid_legacy_uid ~ '^[0-9A-F]{8,20}$'::text)))"
+        },
+        {
+          "name": "physical_keys_rfid_legacy_uid_key",
+          "kind": "u",
+          "def": "UNIQUE (rfid_legacy_uid)"
+        },
+        {
+          "name": "physical_keys_status_check",
+          "kind": "c",
+          "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'frozen'::text, 'revoked'::text])))"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX physical_keys_user_idx ON public.physical_keys USING btree (user_id)"
+      ],
+      "triggers": [
+        "CREATE TRIGGER physical_keys_audit AFTER INSERT OR UPDATE ON public.physical_keys FOR EACH ROW EXECUTE FUNCTION rout_physical_key_audit()"
+      ],
+      "rls": true,
+      "forceRls": false,
+      "policies": [
+        {
+          "name": "physical_keys_insert_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "INSERT",
+          "using": null,
+          "check": "((user_id = rout_current_user_id()) AND (status = 'pending'::text))"
+        },
+        {
+          "name": "physical_keys_select_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "SELECT",
+          "using": "(user_id = rout_current_user_id())",
+          "check": null
+        },
+        {
+          "name": "physical_keys_update_own",
+          "permissive": true,
+          "roles": [
+            "public"
+          ],
+          "cmd": "UPDATE",
+          "using": "(user_id = rout_current_user_id())",
+          "check": "(user_id = rout_current_user_id())"
+        }
+      ],
+      "grants": {
+        "rout_app": [
+          "SELECT"
         ]
       }
     },
@@ -19416,6 +20230,48 @@
     },
     {
       "schema": "public",
+      "name": "used_nonces",
+      "columns": [
+        {
+          "name": "nonce",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "used_nonces_nonce_check",
+          "kind": "c",
+          "def": "CHECK ((nonce ~ '^[A-Za-z0-9_-]{22}$'::text))"
+        },
+        {
+          "name": "used_nonces_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (nonce)"
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX used_nonces_expiry_idx ON public.used_nonces USING btree (expires_at)"
+      ],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [],
+      "grants": {}
+    },
+    {
+      "schema": "public",
       "name": "user_assets",
       "columns": [
         {
@@ -22623,6 +23479,95 @@
     },
     {
       "schema": "public",
+      "name": "wallet_passes",
+      "columns": [
+        {
+          "name": "object_id",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "user_id",
+          "type": "uuid",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "card_serial",
+          "type": "text",
+          "notNull": true,
+          "default": null,
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "sync_status",
+          "type": "text",
+          "notNull": true,
+          "default": "'pending'::text",
+          "identity": null,
+          "generated": null
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "notNull": true,
+          "default": "now()",
+          "identity": null,
+          "generated": null
+        }
+      ],
+      "constraints": [
+        {
+          "name": "wallet_passes_object_id_check",
+          "kind": "c",
+          "def": "CHECK ((object_id ~ '^[0-9]+\\.[A-Za-z0-9._-]+$'::text))"
+        },
+        {
+          "name": "wallet_passes_pkey",
+          "kind": "p",
+          "def": "PRIMARY KEY (object_id)"
+        },
+        {
+          "name": "wallet_passes_sync_status_check",
+          "kind": "c",
+          "def": "CHECK ((sync_status = ANY (ARRAY['pending'::text, 'synced'::text, 'failed'::text])))"
+        },
+        {
+          "name": "wallet_passes_user_id_fkey",
+          "kind": "f",
+          "def": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+        }
+      ],
+      "indexes": [],
+      "triggers": [],
+      "rls": true,
+      "forceRls": false,
+      "policies": [
+        {
+          "name": "wallet_passes_read_own",
+          "permissive": true,
+          "roles": [
+            "rout_app"
+          ],
+          "cmd": "SELECT",
+          "using": "(user_id = rout_current_user_id())",
+          "check": null
+        }
+      ],
+      "grants": {
+        "rout_app": [
+          "SELECT"
+        ]
+      }
+    },
+    {
+      "schema": "public",
       "name": "wallet_transactions",
       "columns": [
         {
@@ -24855,6 +25800,36 @@
     },
     {
       "schema": "public",
+      "name": "rout_card_design",
+      "args": "s text",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_card_design(s text)\n RETURNS jsonb\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$ select cmf from public.card_designs where serial = s $function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_card_frozen",
+      "args": "s text",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_card_frozen(s text)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$ select exists (select 1 from public.card_freezes where serial = s) $function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_card_status_by_hardware",
+      "args": "hid uuid",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_card_status_by_hardware(hid uuid)\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select case when k.status = 'active' and k.public_key is not null\n    and k.key_alg in ('Ed25519','P-256') and k.card_serial is not null\n    and public.rout_card_status_by_serial(k.card_serial) = 'active'\n    then 'active' else 'frozen' end\n  from public.physical_keys k where k.hardware_id = hid\n$function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_card_status_by_serial",
+      "args": "s text",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_card_status_by_serial(s text)\n RETURNS text\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\n  select case\n    when exists(select 1 from public.card_freezes where serial = s) then 'frozen'\n    when exists(select 1 from public.physical_keys where card_serial = s and status <> 'active') then 'frozen'\n    else 'active' end\n$function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_card_token_use",
+      "args": "n text, exp timestamp with time zone",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_card_token_use(n text, exp timestamp with time zone)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare inserted integer;\nbegin\n  if n is null or n !~ '^[A-Za-z0-9_-]{22}$' or exp is null or exp <= now()\n     or exp > now() + interval '60 seconds' then\n    insert into public.audit_logs(event) values ('qr_expired');\n    return false;\n  end if;\n  delete from public.used_nonces where expires_at < now() - interval '5 minutes';\n  insert into public.used_nonces(nonce, expires_at) values(n, exp) on conflict do nothing;\n  get diagnostics inserted = row_count;\n  insert into public.audit_logs(event) values(case when inserted = 1 then 'qr_verified' else 'qr_replayed' end);\n  return inserted = 1;\nend $function$"
+    },
+    {
+      "schema": "public",
       "name": "rout_claim_agent_workspace",
       "args": "p_token_hash text",
       "def": "CREATE OR REPLACE FUNCTION public.rout_claim_agent_workspace(p_token_hash text)\n RETURNS TABLE(workspace_id uuid, slug text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare\n  v_uid uuid := public.rout_current_user_id();\n  v_claim public.agent_workspace_claims%rowtype;\n  v_slug text;\nbegin\n  if v_uid is null then raise exception 'not_authenticated'; end if;\n  select * into v_claim from public.agent_workspace_claims c where c.token_hash = p_token_hash for update;\n  if not found then raise exception 'claim_not_found'; end if;\n  if v_claim.claimed_at is not null then raise exception 'claim_used'; end if;\n  if v_claim.expires_at <= now() then raise exception 'claim_expired'; end if;\n\n  insert into public.workspace_members (workspace_id, user_id, role)\n  values (v_claim.workspace_id, v_uid, 'owner')\n  on conflict on constraint workspace_members_pkey do update set role = 'owner';\n  update public.agent_workspace_claims c\n     set claimed_at = now(), claimed_by = v_uid\n   where c.workspace_id = v_claim.workspace_id;\n  select w.slug into v_slug from public.workspaces w where w.id = v_claim.workspace_id;\n  return query select v_claim.workspace_id, v_slug;\nend;\n$function$"
@@ -24876,6 +25851,24 @@
       "name": "rout_grid_media_path",
       "args": "p_url text",
       "def": "CREATE OR REPLACE FUNCTION public.rout_grid_media_path(p_url text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE\n SET search_path TO 'pg_catalog', 'public'\nAS $function$\n select case when p_url ~ '^/api/public/gallery-media\\?path=[0-9a-f-]{36}(%2[Ff]|/)[A-Za-z0-9][A-Za-z0-9._-]{0,159}$'\n then replace(replace(split_part(p_url,'path=',2),'%2F','/'),'%2f','/') else null end\n$function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_hw_consume_challenge",
+      "args": "hid uuid, nh text",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_hw_consume_challenge(hid uuid, nh text)\n RETURNS TABLE(public_key text, key_alg text, status text)\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if public.rout_card_status_by_hardware(hid) is distinct from 'active' then return; end if;\n  delete from public.hardware_challenges c where c.nonce_hash = nh and c.hardware_id = hid and c.expires_at > now();\n  if not found then return; end if;\n  return query select k.public_key, k.key_alg, k.status from public.physical_keys k\n    where k.hardware_id = hid and k.status = 'active';\nend $function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_hw_issue_challenge",
+      "args": "hid uuid, nh text",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_hw_issue_challenge(hid uuid, nh text)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if public.rout_card_status_by_hardware(hid) is distinct from 'active'\n     or nh is null or nh !~ '^[a-f0-9]{64}$' then return false; end if;\n  delete from public.hardware_challenges where expires_at < now();\n  insert into public.hardware_challenges(nonce_hash, hardware_id, expires_at)\n    values(nh, hid, now() + interval '30 seconds') on conflict do nothing;\n  return found;\nend $function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_hw_record_scan",
+      "args": "hid uuid, ok boolean",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_hw_record_scan(hid uuid, ok boolean)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  update public.physical_keys set last_scanned_at = now() where hardware_id = hid and ok;\n  insert into public.physical_key_events (hardware_id, user_id, event)\n    select hid, k.user_id, case when ok then 'verified' else 'rejected' end from public.physical_keys k where k.hardware_id = hid;\nend $function$"
     },
     {
       "schema": "public",
@@ -24915,6 +25908,12 @@
     },
     {
       "schema": "public",
+      "name": "rout_pair_factory_card",
+      "args": "hid uuid, proof_hash text, serial text",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_pair_factory_card(hid uuid, proof_hash text, serial text)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare uid uuid := public.rout_current_user_id();\ndeclare item public.factory_card_inventory%rowtype;\nbegin\n  if uid is null then return null; end if;\n  select * into item from public.factory_card_inventory\n    where hardware_id = hid and activation_hash = proof_hash\n      and status = 'pending' and user_id is null for update;\n  if not found then return null; end if;\n  -- Key and algorithm come exclusively from factory inventory, not the client.\n  insert into public.physical_keys\n    (hardware_id, user_id, card_serial, nfc_uid, public_key, key_alg, status)\n    values (item.hardware_id, uid, serial, item.nfc_uid, item.public_key, item.key_alg, 'active');\n  update public.factory_card_inventory set status = 'active', user_id = uid,\n    paired_at = now(), activation_hash = repeat('0', 64) where hardware_id = hid;\n  return hid;\nend $function$"
+    },
+    {
+      "schema": "public",
       "name": "rout_parent_approve_consent",
       "args": "p_token_hash text",
       "def": "CREATE OR REPLACE FUNCTION public.rout_parent_approve_consent(p_token_hash text)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare v_user uuid;\nbegin\n  update public.parent_authorizations set status = 'approved'\n   where token = p_token_hash and action_type = 'consent' and status = 'pending' and expires_at > now()\n   returning user_id into v_user;\n  if v_user is null then\n    return exists (select 1 from public.parent_authorizations where token = p_token_hash and action_type = 'consent' and status = 'approved');\n  end if;\n  update public.users set parent_consent_status = 'approved' where id = v_user;\n  return true;\nend $function$"
@@ -24942,6 +25941,12 @@
       "name": "rout_parent_set_qa_level",
       "args": "p_token_hash text, p_level qa_permission_level",
       "def": "CREATE OR REPLACE FUNCTION public.rout_parent_set_qa_level(p_token_hash text, p_level qa_permission_level)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\ndeclare v_user uuid;\nbegin\n  select user_id into v_user from public.parent_authorizations\n   where token = p_token_hash and action_type = 'consent' and (status = 'approved' or (status = 'pending' and expires_at > now()));\n  if v_user is null then return false; end if;\n  update public.users set qa_permission_level = p_level where id = v_user;\n  return true;\nend $function$"
+    },
+    {
+      "schema": "public",
+      "name": "rout_physical_key_audit",
+      "args": "",
+      "def": "CREATE OR REPLACE FUNCTION public.rout_physical_key_audit()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\nbegin\n  if tg_op = 'INSERT' then\n    insert into public.physical_key_events (hardware_id, user_id, event) values (new.hardware_id, new.user_id, 'provisioned');\n  elsif new.status is distinct from old.status then\n    insert into public.physical_key_events (hardware_id, user_id, event) values (\n      new.hardware_id, new.user_id,\n      case new.status when 'active' then (case old.status when 'frozen' then 'unfrozen' else 'activated' end)\n                      when 'frozen' then 'frozen' else 'revoked' end);\n  end if;\n  -- A revoked key never comes back.\n  if tg_op = 'UPDATE' and old.status = 'revoked' and new.status <> 'revoked' then\n    raise exception 'revoked keys cannot be reactivated' using errcode = '42501';\n  end if;\n  return new;\nend $function$"
     },
     {
       "schema": "public",
