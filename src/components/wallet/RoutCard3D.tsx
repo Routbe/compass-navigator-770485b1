@@ -8,9 +8,14 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "rea
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, Text } from "@react-three/drei";
 import * as THREE from "three";
+import { configureTextBuilder } from "troika-three-text";
 import { CARD_RATIO, FACE_H, FACE_W, type CardFaces } from "./card-faces";
 import { clampTilt, stepSpring, type Spring } from "./card-physics";
 import { createSecurityMaterial } from "./card-shader";
+
+// Troika's nested blob importScripts conflicts with our strict script-src.
+// Typeset once on the main thread; keep the same GPU SDF rendering and CSP.
+configureTextBuilder({ useWorker: false, defaultFontURL: "/fonts/Inter-SemiBold.ttf" });
 
 export type CardFinish = "metal" | "glass" | "holo" | "junior";
 export type TiltRef = { current: { x: number; y: number; at: number } };
