@@ -52,12 +52,20 @@ export const MERGE_TABLES: Readonly<Record<string, MergeTableRule>> = {
   omni_jobs: r("skip"),
   omni_matrix_items: r("skip"),
   social_grid_items: r("skip"),
+  // Card/issuer records must not silently transfer ownership across accounts.
+  card_designs: r("skip"),
+  card_freezes: r("skip"),
+  factory_card_inventory: r("skip"),
+  physical_keys: r("skip"),
+  wallet_passes: r("skip"),
+  oidc_subjects: r("skip"),
 
   // Append-only audit trails without FK: history stays as written.
   security_audit_logs: r("retain"),
   identity_link_events: r("retain"),
   // Chronos agent audit (0168): hash-chained, no FK to users — history stays as written.
   agent_audit_logs: r("retain"),
+  physical_key_events: r("retain"),
 
   user_ledger_keys: r("skip"),
   user_encrypted_audit_logs: r("skip"),
